@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-/** OAuth / magic-link PKCE callback: exchanges the code for a session. */
+/** Magic-link / email-confirmation PKCE callback: exchanges the code for a session. */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");

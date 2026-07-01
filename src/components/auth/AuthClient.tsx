@@ -1,5 +1,5 @@
 "use client";
-/** Email + OAuth sign-in. Guests keep local progress; accounts add sync + leaderboard. */
+/** Email sign-in (password or magic link). Guests keep local progress; accounts add sync + leaderboard. */
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -68,18 +68,6 @@ export default function AuthClient() {
     } catch (err) {
       setMsg({ kind: "error", text: err instanceof Error ? err.message : String(err) });
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const oauth = async (provider: "google" | "github") => {
-    setBusy(true);
-    const { error } = await sb.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: callbackUrl() },
-    });
-    if (error) {
-      setMsg({ kind: "error", text: error.message });
       setBusy(false);
     }
   };
@@ -156,29 +144,6 @@ export default function AuthClient() {
           {msg.text}
         </p>
       )}
-
-      <div className="flex items-center gap-3 my-6">
-        <div className="h-px flex-1 bg-[var(--border)]" />
-        <span className="text-xs text-muted">or continue with</span>
-        <div className="h-px flex-1 bg-[var(--border)]" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => oauth("google")}
-          disabled={busy}
-          className="h-10 rounded-lg border border-edge bg-surface text-sm hover:bg-surface-2 transition-colors disabled:opacity-50"
-        >
-          Google
-        </button>
-        <button
-          onClick={() => oauth("github")}
-          disabled={busy}
-          className="h-10 rounded-lg border border-edge bg-surface text-sm hover:bg-surface-2 transition-colors disabled:opacity-50"
-        >
-          GitHub
-        </button>
-      </div>
 
       <p className="text-xs text-muted text-center mt-6">
         Guest progress stays in this browser and is not merged into your account.

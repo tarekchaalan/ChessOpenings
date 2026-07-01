@@ -17,7 +17,7 @@ queue per opening.
 
 - **Next.js 16 / React 19 / TypeScript / Tailwind 4**
 - **chess.js** as the rules oracle + **chessground** (lichess's board)
-- **Supabase** — Auth (email, magic link, Google/GitHub OAuth), Postgres with
+- **Supabase** — Auth (email + password, magic links), Postgres with
   row-level security, and SECURITY DEFINER RPCs for the anti-forge quiz loop
 - Opening data: **lichess-org/chess-openings** (ECO names, pinned commit) +
   the **lichess broadcast database** (professional OTB games) for real move
@@ -45,8 +45,8 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
      `NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:remote`
 4. Copy `.env.example` to `.env.local` and fill in
    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-5. (Optional) enable Google/GitHub providers under Auth → Providers, and add
-   `https://<your-domain>/auth/callback` to the redirect allowlist.
+5. Add `https://<your-domain>/auth/callback` to Auth → URL Configuration →
+   Redirect URLs (needed for magic-link sign-in).
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
 and `seed.sql` automatically.

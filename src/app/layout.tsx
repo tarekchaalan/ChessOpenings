@@ -35,7 +35,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-screen flex flex-col">
+      {/* suppressHydrationWarning: browser extensions (ColorZilla, Grammarly…)
+          inject attributes into <body> before React hydrates */}
+      <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <Header />
