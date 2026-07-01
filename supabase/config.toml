@@ -1,0 +1,19 @@
+# Supabase CLI configuration for local development.
+# `supabase start` gives you a full local stack; `supabase db reset` applies
+# migrations/ and then seed.sql (the generated theory data).
+project_id = "chess-openings-trainer"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false

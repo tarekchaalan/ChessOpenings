@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #faf9f6;
+  --surface: #ffffff;
+  --surface-2: #f1efe9;
+  --border: #e4e1d8;
+  --foreground: #1c1b18;
+  --muted: #6f6b60;
+  --accent: #147a4d;
+  --accent-soft: #e3f2ea;
+  --accent-fg: #ffffff;
+  --danger: #c2410c;
+  --gold: #b98a1c;
+  --bar-white: #f4f4f2;
+  --bar-draw: #b3aea3;
+  --bar-black: #33312d;
+}
+
+.dark {
+  --background: #14161a;
+  --surface: #1c1f25;
+  --surface-2: #23272f;
+  --border: #2e333c;
+  --foreground: #e8e6e1;
+  --muted: #9a968c;
+  --accent: #2fbd7f;
+  --accent-soft: #17362a;
+  --accent-fg: #0c1210;
+  --danger: #f97316;
+  --gold: #e3b341;
+  --bar-white: #d8d6d0;
+  --bar-draw: #6b6860;
+  --bar-black: #08090b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-edge: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-gold: var(--gold);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* ── Chessground board ──────────────────────────────────────────────────── */
+.board-shell {
+  width: 100%;
+  max-width: min(88vw, 560px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.board-cg {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+.board-cg .cg-wrap {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+.dark .board-cg .cg-wrap {
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+}
+coords {
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+@keyframes board-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.board-shake {
+  animation: board-shake 0.35s ease-in-out;
+}
+
+/* ── Win-rate bars ──────────────────────────────────────────────────────── */
+.winbar {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1;
+}
+.winbar > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.winbar .w { background: var(--bar-white); color: #1c1b18; }
+.winbar .d { background: var(--bar-draw); color: #fff; }
+.winbar .b { background: var(--bar-black); color: #e8e6e1; }
+
+/* subtle scrollbars for panels */
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}

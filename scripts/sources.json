@@ -1,0 +1,14 @@
+{
+  "datasetVersion": "1.0.0",
+  "chessOpenings": {
+    "repo": "lichess-org/chess-openings",
+    "commit": "51a55d956b7ed0b9cd7853893744b1ca39cd2a05",
+    "files": ["a.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv"]
+  },
+  "gamesCorpus": {
+    "source": "database.lichess.org/broadcast",
+    "description": "Lichess official OTB broadcast database (professional over-the-board games)",
+    "months": ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"],
+    "minElo": 2200
+  }
+}
