@@ -51,6 +51,25 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
 Local stack instead: `supabase start && supabase db reset` applies migrations
 and `seed.sql` automatically.
 
+### Server API routes (@supabase/server)
+
+Server-side endpoints under `src/app/api/` use
+[`@supabase/server`](https://www.npmjs.com/package/@supabase/server):
+`withSupabase({ auth: "user" }, handler)` verifies the caller's JWT against
+`SUPABASE_JWKS_URL` and injects an RLS-scoped client (`ctx.supabase`) plus an
+RLS-bypassing admin client (`ctx.supabaseAdmin`), so handlers contain business
+logic only. Example: `GET /api/progress` returns the signed-in player's
+training summary — call it with
+`Authorization: Bearer <session.access_token>`.
+
+It reads `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` and
+`SUPABASE_JWKS_URL` from the environment (see `.env.example`; copy real values
+from the Supabase dashboard's Connect dialog and never commit the secret key).
+On Supabase Edge Functions those variables are injected automatically, and
+functions using non-`"user"` auth modes need `verify_jwt = false` in
+`supabase/config.toml`. Routes respond `503` when the variables are unset, so
+guest-mode deployments keep working.
+
 ### Why scores can't be forged
 
 Clients never write ratings, SRS state, or attempts. The server:
