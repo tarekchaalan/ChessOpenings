@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Chess, Move } from "chess.js";
 import { getPrefs, setPref } from "@/lib/prefs";
+import { playMoveSound, preloadSounds } from "@/lib/sound";
 import {
   ArrowLeft,
   ArrowRight,
@@ -108,6 +109,7 @@ function Walkthrough({ ds, openingId }: { ds: Dataset; openingId: number }) {
   // default from device preference; toggling remembers the choice
   useEffect(() => {
     setHintsState(getPrefs().learnHints);
+    preloadSounds();
   }, []);
   const setHints = useCallback((update: boolean | ((h: boolean) => boolean)) => {
     setHintsState((prev) => {
@@ -150,7 +152,10 @@ function Walkthrough({ ds, openingId }: { ds: Dataset; openingId: number }) {
       .filter(Boolean) as { san: string; games: number; name: string | null }[];
   }, [ds, family, steps, ply, epd, fen, nextStep]);
 
-  const advance = useCallback(() => setPly((p) => Math.min(p + 1, steps.length)), [steps.length]);
+  const advance = useCallback(() => {
+    if (ply < steps.length) playMoveSound(steps[ply].san, true);
+    setPly((p) => Math.min(p + 1, steps.length));
+  }, [ply, steps]);
   const backOne = useCallback(() => setPly((p) => Math.max(p - 1, 0)), []);
 
   const onUserMove = useCallback(
@@ -169,6 +174,7 @@ function Walkthrough({ ds, openingId }: { ds: Dataset; openingId: number }) {
   const branchTo = useCallback(
     (san: string) => {
       const prefix = [...steps.slice(0, ply).map((s) => s.san), san];
+      playMoveSound(san, true);
       setLineSans(greedyMainline(ds, family, prefix));
       setPly(prefix.length);
     },

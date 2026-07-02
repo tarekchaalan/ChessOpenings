@@ -4,7 +4,7 @@
  * Contract mirrors lib/quiz/local.ts exactly.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnswerResult, Challenge, QuizBackend } from "./types";
+import type { AnswerResult, Challenge, IssueOptions, QuizBackend } from "./types";
 
 interface RpcChallenge {
   id: string;
@@ -29,11 +29,18 @@ export class RemoteQuizBackend implements QuizBackend {
 
   constructor(private sb: SupabaseClient) {}
 
-  async issue(openingId: number, side: "white" | "black", prevId: string | null): Promise<Challenge> {
+  async issue(
+    openingId: number,
+    side: "white" | "black",
+    prevId: string | null,
+    opts?: IssueOptions
+  ): Promise<Challenge> {
     const { data, error } = await this.sb.rpc("issue_challenge", {
       p_opening_id: openingId,
       p_side: side,
       p_prev: prevId,
+      p_target: opts?.target ?? null,
+      p_start: opts?.startPly ?? 0,
     });
     if (error) throw new Error(error.message);
     return data as RpcChallenge;

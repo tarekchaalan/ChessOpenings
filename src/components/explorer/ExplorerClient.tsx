@@ -24,6 +24,7 @@ import WinBar from "@/components/WinBar";
 import { useDataset } from "@/lib/hooks";
 import { LineState, replayLine, pushSan } from "@/lib/line";
 import { fetchMasterStats, LiveStats } from "@/lib/lichess";
+import { playMoveSound, preloadSounds } from "@/lib/sound";
 import {
   Dataset,
   MoveStat,
@@ -104,10 +105,15 @@ function Explorer({ ds }: { ds: Dataset }) {
 
   useEffect(() => setSelected(0), [line.epd]);
 
+  useEffect(() => {
+    preloadSounds();
+  }, []);
+
   const play = useCallback(
     (san: string) => {
       const next = pushSan(lineRef.current, san);
       if (!next) return;
+      playMoveSound(san, true);
       setFuture((f) => (f[0] === san ? f.slice(1) : []));
       setLine(next);
     },
@@ -126,6 +132,7 @@ function Explorer({ ds }: { ds: Dataset }) {
       if (f.length) {
         const next = pushSan(lineRef.current, f[0]);
         if (next) {
+          playMoveSound(f[0], true);
           setLine(next);
           return f.slice(1);
         }

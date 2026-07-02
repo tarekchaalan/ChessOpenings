@@ -21,7 +21,7 @@ import {
   recordLocalAttempt,
   saveLocalCard,
 } from "@/lib/progress/local";
-import type { AnswerResult, Challenge, QuizBackend } from "./types";
+import type { AnswerResult, Challenge, IssueOptions, QuizBackend } from "./types";
 
 interface PendingChallenge {
   id: string;
@@ -32,6 +32,8 @@ interface PendingChallenge {
   expected: { san: string; games: number }[];
   answered: boolean;
   review: boolean;
+  /** playlist variation the opponent follows while the game stays on it */
+  target: string[] | null;
 }
 
 /** Core lines used for mastery: the family's most-played named variations. */
@@ -74,14 +76,27 @@ export class LocalQuizBackend implements QuizBackend {
     return f;
   }
 
-  async issue(openingId: number, side: "white" | "black", prevId: string | null): Promise<Challenge> {
+  async issue(
+    openingId: number,
+    side: "white" | "black",
+    prevId: string | null,
+    opts?: IssueOptions
+  ): Promise<Challenge> {
     const family = this.family(openingId);
     let sans: string[] = [];
+    let target = opts?.target ?? null;
     if (prevId) {
       const prev = this.pending.get(prevId);
-      if (prev && prev.answered) sans = prev.sans;
+      if (prev && prev.answered) {
+        sans = prev.sans;
+        target = opts?.target ?? prev.target;
+      }
+    } else if (target && opts?.startPly) {
+      // start at the divergence point from the previously drilled line
+      const startPly = Math.max(0, Math.min(opts.startPly, target.length - 2));
+      sans = target.slice(0, startPly);
     }
-    return this.walk(openingId, side, sans, family, false);
+    return this.walk(openingId, side, sans, family, target);
   }
 
   async issueReview(openingId: number, epd: string, lineSans: string[]): Promise<Challenge> {
@@ -98,18 +113,23 @@ export class LocalQuizBackend implements QuizBackend {
       expected: expected.map((e) => ({ san: e.san, games: e.games })),
       answered: false,
       review: true,
+      target: null,
     };
     this.pending.set(id, challenge);
     return { id, sans: lineSans, epd, ply: lineSans.length, done: expected.length === 0 };
   }
 
-  /** Advance opponent moves (frequency-weighted) until it's the user's turn. */
+  /**
+   * Advance opponent moves until it's the user's turn. While the game is
+   * still on the target playlist line, the opponent follows it; off the line
+   * (or with no target) it samples real-theory moves by game frequency.
+   */
   private walk(
     openingId: number,
     side: "white" | "black",
     sans: string[],
     family: Family,
-    review: boolean
+    target: string[] | null
   ): Challenge {
     const chess = new Chess();
     for (const san of sans) chess.move(san);
@@ -132,17 +152,27 @@ export class LocalQuizBackend implements QuizBackend {
           epd,
           expected: next.map((e) => ({ san: e.san, games: e.games })),
           answered: false,
-          review,
+          review: false,
+          target,
         });
         return { id, sans: [...sans], epd, ply: sans.length, done: false };
       }
-      // opponent plays a real-theory move, weighted by master-game frequency
-      const total = next.reduce((s, m) => s + m.games + 1, 0);
-      let roll = Math.random() * total;
       let chosen = next[0];
-      for (const m of next) {
-        roll -= m.games + 1;
-        if (roll <= 0) { chosen = m; break; }
+      const onTarget =
+        target &&
+        target.length > sans.length &&
+        sans.every((s, i) => target[i] === s) &&
+        next.some((m) => m.san === target[sans.length]);
+      if (onTarget) {
+        chosen = next.find((m) => m.san === target![sans.length])!;
+      } else {
+        // weighted random among real-theory continuations
+        const total = next.reduce((s, m) => s + m.games + 1, 0);
+        let roll = Math.random() * total;
+        for (const m of next) {
+          roll -= m.games + 1;
+          if (roll <= 0) { chosen = m; break; }
+        }
       }
       chess.move(chosen.san);
       sans = [...sans, chosen.san];

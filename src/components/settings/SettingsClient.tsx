@@ -272,6 +272,15 @@ function PreferencesTab() {
         </div>
       </Card>
 
+      <Card title="Sound">
+        <Toggle
+          label="Board sounds"
+          description="Move, capture, castle, check and promotion sounds on every board."
+          checked={prefs.sound}
+          onChange={(v) => setPref("sound", v)}
+        />
+      </Card>
+
       <Card title="Learn mode">
         <Toggle
           label="Show hint arrows by default"

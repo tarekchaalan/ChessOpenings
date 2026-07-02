@@ -78,8 +78,13 @@ export default function Board({
     const canMove =
       movableColor !== null && (movableColor === "both" || movableColor === turn);
 
+    // When the board already shows this position (e.g. the user just dragged
+    // the move and we're waiting for the server to grade it), don't re-set the
+    // fen — that would snap the piece back and replay the move.
+    const alreadyThere = api.getFen() === fen.split(" ")[0];
+
     const config: Config = {
-      fen,
+      ...(alreadyThere ? {} : { fen }),
       orientation,
       turnColor: turn,
       check: chess.inCheck(),

@@ -21,18 +21,23 @@ import {
 import Board from "@/components/Board";
 import { useDataset, useQuizBackend } from "@/lib/hooks";
 import { replayLine, LineState, pushSan } from "@/lib/line";
-import { Dataset, nameForLine } from "@/lib/openings";
+import { Dataset, familyOf, nameForLine } from "@/lib/openings";
+import { buildPlaylist, PlaylistLine, shuffled, startPlyFor } from "@/lib/quiz/playlist";
+import { playMoveSound, preloadSounds } from "@/lib/sound";
 import type { SrsCard } from "@/lib/srs";
 import type { AnswerResult, Challenge } from "@/lib/quiz/types";
 
 const SESSION_TARGET = 12;
 const OPPONENT_MOVE_MS = 450;
 const FAST_REPLAY_MS = 130;
+const DEFAULT_PLAYLIST_SIZE = 10;
 
 export interface QuizConfig {
   mode: "opening" | "review";
   openingId?: number;
   side?: "white" | "black";
+  /** how many top variations rotate through the session */
+  playlistSize?: number;
   reviewCards?: SrsCard[];
 }
 
@@ -77,9 +82,27 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
     () => (ds ? nameForLine(ds, line.epds)?.name ?? null : null),
     [ds, line]
   );
+
+  // ── playlist: the shuffled top variations this session drills ──────────
+  const playlist: PlaylistLine[] = useMemo(() => {
+    if (!ds || config.mode !== "opening" || config.openingId === undefined) return [];
+    const family = familyOf(ds, config.openingId);
+    return shuffled(buildPlaylist(family, config.playlistSize ?? DEFAULT_PLAYLIST_SIZE));
+  }, [ds, config.mode, config.openingId, config.playlistSize]);
+  const [lineIdx, setLineIdx] = useState(0);
+  const lineIdxRef = useRef(0);
+  /** the moves actually drilled on the previous line (for divergence starts) */
+  const prevDrilledRef = useRef<string[] | null>(null);
+  const rotatePlaylist = useCallback(() => {
+    if (lineRef.current.sans.length) prevDrilledRef.current = lineRef.current.sans;
+    lineIdxRef.current += 1;
+    setLineIdx(lineIdxRef.current);
+  }, []);
+
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
+    preloadSounds();
     return () => {
       alive.current = false;
       if (animTimer.current) clearTimeout(animTimer.current);
@@ -129,6 +152,7 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
       }
       animTimer.current = setTimeout(() => {
         const next = [...sans, remaining[0]];
+        playMoveSound(remaining[0], false);
         setLine(replayLine(next));
         step(next, remaining.slice(1));
       }, stepDelay);
@@ -138,9 +162,9 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
 
   const finish = useCallback(() => setPhase("done"), []);
 
-  /** Fetch the next challenge (continue line, new line, or next review card). */
+  /** Fetch the next challenge (continue line, next playlist variation, or next review card). */
   const nextChallenge = useCallback(
-    async (prevId: string | null, currentLine: LineState) => {
+    async (prevId: string | null, currentLine: LineState, attempt = 0) => {
       if (!backend) return;
       try {
         let ch: Challenge;
@@ -159,11 +183,20 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
             return;
           }
         } else {
-          ch = await backend.issue(config.openingId!, side, prevId);
+          const entry = playlist.length
+            ? playlist[lineIdxRef.current % playlist.length]
+            : null;
+          const opts = entry
+            ? prevId
+              ? { target: entry.sans }
+              : { target: entry.sans, startPly: startPlyFor(entry.sans, prevDrilledRef.current) }
+            : undefined;
+          ch = await backend.issue(config.openingId!, side, prevId, opts);
           if (ch.done) {
-            // line exhausted — start a new line from the top
-            if (prevId !== null) {
-              nextChallenge(null, currentLine);
+            // line exhausted — rotate to the next playlist variation
+            if (attempt < 3) {
+              rotatePlaylist();
+              nextChallenge(null, currentLine, attempt + 1);
               return;
             }
             finish();
@@ -181,7 +214,7 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
         setPhase("error");
       }
     },
-    [backend, config, side, animateTo, finish]
+    [backend, config, side, animateTo, finish, playlist, rotatePlaylist]
   );
 
   // kick off first challenge once the backend is ready
@@ -198,6 +231,19 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
       if (!backend || !challenge || phase !== "awaiting") return;
       const ms = Math.max(200, Date.now() - startedAt.current);
       setPhase("feedback");
+
+      // apply the user's move immediately so the board never snaps back
+      // while the answer is being graded (this was the visible stutter)
+      const lineBefore = lineRef.current;
+      let optimistic: LineState | null = null;
+      if (!gaveUp) {
+        optimistic = pushSan(lineBefore, san);
+        if (optimistic) {
+          playMoveSound(san, true);
+          setLine(optimistic);
+        }
+      }
+
       try {
         const res = await backend.answer(challenge.id, gaveUp ? "--" : san, ms, hintShown);
         if (!alive.current) return;
@@ -206,18 +252,15 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
         setRatingNow(res.rating);
         setRatingDeltaSum((s) => s + res.ratingDelta);
 
-        const lineNow = lineRef.current;
         if (res.correct) {
           setCorrectCount((c) => c + 1);
           setStreak((s) => s + 1);
-          const advanced = pushSan(lineNow, san);
-          if (advanced) setLine(advanced);
           const doneCount = answered + 1;
           setTimeout(() => {
             if (!alive.current) return;
             if (config.mode === "review") reviewIdx.current++;
             if (doneCount >= SESSION_TARGET) finish();
-            else nextChallenge(config.mode === "review" ? null : challenge.id, advanced ?? lineNow);
+            else nextChallenge(config.mode === "review" ? null : challenge.id, optimistic ?? lineBefore);
           }, 700);
         } else {
           setStreak(0);
@@ -232,11 +275,12 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
               openingName: openingName ?? "",
             },
           ]);
-          // show the book move on the board after a beat
+          // take the wrong move back and show the book move
           setTimeout(() => {
             if (!alive.current) return;
-            const corrected = pushSan(lineNow, res.best);
+            const corrected = pushSan(lineBefore, res.best);
             if (corrected) {
+              playMoveSound(res.best, false);
               setLine(corrected);
               setHintArrow(null);
             }
@@ -251,14 +295,14 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
   );
 
   const continueAfterMiss = useCallback(() => {
-    const doneCount = answered;
-    if (doneCount >= SESSION_TARGET) {
+    if (answered >= SESSION_TARGET) {
       finish();
       return;
     }
     if (config.mode === "review") reviewIdx.current++;
+    else rotatePlaylist();
     nextChallenge(null, lineRef.current);
-  }, [answered, config.mode, finish, nextChallenge]);
+  }, [answered, config.mode, finish, nextChallenge, rotatePlaylist]);
 
   if (!ds || !backend) return <SessionSkeleton />;
   if (phase === "error") {
@@ -295,8 +339,22 @@ export default function QuizSession({ config, title }: { config: QuizConfig; tit
         <div className="flex items-center justify-between mb-3 min-h-8 gap-3">
           <div className="min-w-0">
             <div className="font-medium truncate">{openingName ?? title}</div>
-            <div className="text-xs text-muted">
+            <div className="text-xs text-muted truncate">
               playing as <span className="capitalize font-medium">{side}</span>
+              {playlist.length > 1 && (
+                <>
+                  {" · "}variation{" "}
+                  <span className="font-mono">
+                    {(lineIdx % playlist.length) + 1}/{playlist.length}
+                  </span>
+                  {playlist[lineIdx % playlist.length]?.variation && (
+                    <span title={playlist[lineIdx % playlist.length].name}>
+                      {" · "}
+                      {playlist[lineIdx % playlist.length].variation}
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <div

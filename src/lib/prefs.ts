@@ -7,10 +7,13 @@ const KEY = "cot.v1.prefs";
 export interface Prefs {
   /** show next-move hint arrows by default in Learn mode */
   learnHints: boolean;
+  /** board move/capture sounds */
+  sound: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
   learnHints: true,
+  sound: true,
 };
 
 export function getPrefs(): Prefs {
