@@ -3,7 +3,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { Crown, Moon, Sun, User as UserIcon, LogOut, Menu, X } from "lucide-react";
+import { Moon, Sun, User as UserIcon, LogOut, Menu, X, Settings } from "lucide-react";
+import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/supabase/AuthProvider";
 
 const NAV = [
@@ -42,7 +43,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight mr-4">
           <span className="w-7 h-7 grid place-items-center rounded-md bg-accent text-accent-fg">
-            <Crown size={16} strokeWidth={2.5} />
+            <Logo size={20} />
           </span>
           <span className="hidden sm:inline">Openings Trainer</span>
         </Link>
@@ -67,6 +68,17 @@ export default function Header() {
         </nav>
 
         <div className="flex-1" />
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className={`w-9 h-9 grid place-items-center rounded-md transition-colors ${
+            pathname.startsWith("/settings")
+              ? "bg-accent-soft text-accent"
+              : "text-muted hover:text-foreground hover:bg-surface-2"
+          }`}
+        >
+          <Settings size={17} />
+        </Link>
         <ThemeToggle />
 
         {configured ? (
@@ -108,7 +120,7 @@ export default function Header() {
 
       {open && (
         <nav className="md:hidden border-t border-edge px-4 py-2 flex flex-col bg-background">
-          {NAV.map((n) => {
+          {[...NAV, { href: "/settings", label: "Settings" }].map((n) => {
             const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
             return (
               <Link

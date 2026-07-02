@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Chess, Move } from "chess.js";
+import { getPrefs, setPref } from "@/lib/prefs";
 import {
   ArrowLeft,
   ArrowRight,
@@ -101,8 +102,20 @@ function Walkthrough({ ds, openingId }: { ds: Dataset; openingId: number }) {
 
   const [lineSans, setLineSans] = useState<string[]>(() => greedyMainline(ds, family, opening.sans));
   const [ply, setPly] = useState(0);
-  const [hints, setHints] = useState(true);
+  const [hints, setHintsState] = useState(true);
   const [shake, setShake] = useState(false);
+
+  // default from device preference; toggling remembers the choice
+  useEffect(() => {
+    setHintsState(getPrefs().learnHints);
+  }, []);
+  const setHints = useCallback((update: boolean | ((h: boolean) => boolean)) => {
+    setHintsState((prev) => {
+      const next = typeof update === "function" ? update(prev) : update;
+      setPref("learnHints", next);
+      return next;
+    });
+  }, []);
 
   const steps = useMemo(() => buildSteps(ds, lineSans), [ds, lineSans]);
   const done = ply >= steps.length;

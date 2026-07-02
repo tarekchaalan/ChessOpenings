@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Crown, Loader2, Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
+import Logo from "@/components/Logo";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
+import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup" | "magic";
@@ -14,6 +17,7 @@ export default function AuthClient() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "error" | "ok"; text: string } | null>(
     params.get("error") ? { kind: "error", text: "Sign-in failed — please try again." } : null
@@ -22,7 +26,7 @@ export default function AuthClient() {
   if (!supabaseConfigured()) {
     return (
       <div className="max-w-md mx-auto py-20 text-center">
-        <Crown className="mx-auto text-accent mb-3" size={28} />
+        <Logo className="mx-auto text-accent mb-3" size={32} />
         <h1 className="text-xl font-semibold mb-2">Accounts not configured</h1>
         <p className="text-sm text-muted mb-6">
           This deployment is running without Supabase. Your progress is saved in this browser.
@@ -53,10 +57,16 @@ export default function AuthClient() {
         if (error) throw error;
         setMsg({ kind: "ok", text: "Check your email for the sign-in link." });
       } else if (mode === "signup") {
+        if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+          throw new Error("Username must be 3–20 characters: letters, numbers, underscores.");
+        }
+        if (!passwordValid(password)) {
+          throw new Error(PASSWORD_POLICY_TEXT);
+        }
         const { error } = await sb.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: callbackUrl() },
+          options: { emailRedirectTo: callbackUrl(), data: { username } },
         });
         if (error) throw error;
         setMsg({ kind: "ok", text: "Account created — check your email to confirm, then sign in." });
@@ -91,7 +101,7 @@ export default function AuthClient() {
     <div className="max-w-sm mx-auto py-16">
       <div className="text-center mb-8">
         <span className="inline-grid w-12 h-12 place-items-center rounded-xl bg-accent text-accent-fg mb-3">
-          <Crown size={24} strokeWidth={2.5} />
+          <Logo size={32} />
         </span>
         <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
         <p className="text-sm text-muted mt-1">
@@ -106,6 +116,20 @@ export default function AuthClient() {
       </div>
 
       <form onSubmit={submit} className="space-y-3">
+        {mode === "signup" && (
+          <input
+            type="text"
+            required
+            minLength={3}
+            maxLength={20}
+            pattern="[A-Za-z0-9_]{3,20}"
+            title="3–20 characters: letters, numbers, underscores"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="username (shown on the leaderboard)"
+            className="w-full h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
+          />
+        )}
         <input
           type="email"
           required
@@ -118,13 +142,14 @@ export default function AuthClient() {
           <input
             type="password"
             required
-            minLength={6}
+            minLength={mode === "signup" ? 8 : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="password"
             className="w-full h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
           />
         )}
+        {mode === "signup" && <PasswordRequirements password={password} />}
         <button
           type="submit"
           disabled={busy}
