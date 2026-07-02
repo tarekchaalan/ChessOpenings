@@ -18,6 +18,8 @@ import {
 import { useAuth } from "@/lib/supabase/AuthProvider";
 import { getSupabase } from "@/lib/supabase/client";
 import { clearLocalData, setPref, usePrefs } from "@/lib/prefs";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
+import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 
 type Tab = "account" | "preferences" | "data";
 
@@ -152,6 +154,8 @@ function AccountTab() {
         <p className="text-xs text-muted mt-1">Used for sign-in only — never shown publicly.</p>
       </Card>
 
+      <ChangePasswordCard />
+
       <Card title="Session">
         <button
           onClick={() => signOut()}
@@ -161,6 +165,76 @@ function AccountTab() {
         </button>
       </Card>
     </div>
+  );
+}
+
+function ChangePasswordCard() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordValid(next)) {
+      setMsg({ kind: "error", text: PASSWORD_POLICY_TEXT });
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    // the project requires the current password for password updates
+    const { error } = await getSupabase()!.auth.updateUser({
+      password: next,
+      current_password: current,
+    });
+    setSaving(false);
+    if (error) {
+      setMsg({ kind: "error", text: error.message });
+    } else {
+      setCurrent("");
+      setNext("");
+      setMsg({ kind: "ok", text: "Password updated." });
+    }
+  };
+
+  return (
+    <Card title="Password">
+      <form onSubmit={save} className="space-y-2 max-w-sm">
+        <input
+          type="password"
+          required
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          placeholder="current password"
+          className="w-full h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
+        />
+        <input
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+          placeholder="new password"
+          className="w-full h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
+        />
+        <PasswordRequirements password={next} />
+        <button
+          type="submit"
+          disabled={saving || !current || !next}
+          className="px-4 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          Update password
+        </button>
+        {msg && (
+          <p className={`text-sm ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
+            {msg.text}
+          </p>
+        )}
+      </form>
+    </Card>
   );
 }
 

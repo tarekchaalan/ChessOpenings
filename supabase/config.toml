@@ -1,6 +1,7 @@
 # Supabase CLI configuration for local development.
 # `supabase start` gives you a full local stack; `supabase db reset` applies
 # migrations/ and then seed.sql (the generated theory data).
+# Auth settings mirror the hosted project's dashboard configuration.
 project_id = "chess-openings-trainer"
 
 [db]
@@ -11,9 +12,18 @@ port = 54321
 schemas = ["public"]
 
 [auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+site_url = "https://chessopenings-nu.vercel.app/"
+additional_redirect_urls = ["https://chessopenings-nu.vercel.app/auth/callback"]
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits_symbols"
 
 [auth.email]
 enable_signup = true
 enable_confirmations = false
+# confirm email changes on both the old and new address
+double_confirm_changes = true
+# password can be changed without a recent session (the app still sends
+# current_password, matching "require current password when updating")
+secure_password_change = false
+otp_length = 8
+otp_expiry = 3600
