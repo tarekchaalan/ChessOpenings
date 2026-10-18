@@ -40,8 +40,9 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
 2. Apply the schema — either:
    - `supabase link --project-ref <ref> && supabase db push`, or
    - paste `supabase/migrations/0001_schema.sql` into the SQL editor.
-3. Seed the theory tables (used server-side to validate quiz answers):
-   - `psql "$DATABASE_URL" -f supabase/seed.sql`, or without psql:
+3. Seed the theory tables (used server-side to validate answers). They are
+   numbered files under 1 MB in `supabase/seed/`, applied in name order:
+   - `for f in supabase/seed/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done`, or without psql:
      `NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:remote`
 4. Copy `.env.example` to `.env.local` and fill in
    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -49,7 +50,8 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
    Redirect URLs (needed for magic-link sign-in).
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
-and `seed.sql` automatically.
+and `seed/*.sql` automatically. Migrating an existing v1 project (user data):
+see the rollout in `docs/design/0004-supabase-v2.md`.
 
 ### Server API routes (@supabase/server)
 
@@ -123,7 +125,7 @@ The position stats are built from the lichess broadcast months pinned in `script
 
 **Production.** Data changes ship with a rebuild and deploy: `prebuild` regenerates every artifact, so dropping or editing TSV files needs no code change and no manual step. Deployed clients re-check the dataset hash on window focus (at most every 10 minutes) and show the same "Openings updated" toast.
 
-The legacy `npm run ingest` (v1 dataset `openings.v1.json` and the v1 `supabase/seed.sql`) stays until the Supabase v2 migration ships. `openings.v1.json` is also the identity baseline for migrating v1 progress.
+The legacy `npm run ingest` (v1 dataset `openings.v1.json` and the v1 seed `supabase/seed.v1.sql`) stays until the Supabase v2 migration ships. `openings.v1.json` is also the identity baseline for migrating v1 progress.
 
 ## Keyboard
 
@@ -153,7 +155,7 @@ src/lib/quiz/                quiz engines: local (guest) + remote (RPC)
 src/lib/progress/            progress stores: localStorage + Supabase
 src/components/              board, explorer, learn, quiz, dashboard, auth
 supabase/migrations/         schema, RLS, RPCs
-supabase/seed.sql            generated theory data
+supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ```
 
 ## Notes

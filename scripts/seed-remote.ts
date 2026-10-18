@@ -1,7 +1,7 @@
 /**
  * Pushes the v2 REFERENCE tables (dataset_version, theory_edges incl. is_ext,
  * theory_lines) to a hosted Supabase project without psql — the same rows as
- * supabase/seed.sql (ADR 0004). It never touches user tables or the one-time
+ * supabase/seed/*.sql (ADR 0004). It never touches user tables or the one-time
  * legacy staging tables.
  *
  * REMOTE WRITE: run only with the project owner's approval, and only after

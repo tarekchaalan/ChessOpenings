@@ -119,57 +119,127 @@ function inserts(table: string, cols: string, rows: string[], batch = 1000): str
   return out;
 }
 
-/**
- * Reference data (theory_edges, theory_lines, dataset_version) as one
- * transaction: re-runnable on every dataset update. Rows are deleted table by
- * table — never TRUNCATE … CASCADE, which could reach user tables through an
- * FK; an unexpected FK makes the delete fail loudly instead (ADR 0004).
- */
-export function seedSql(seed: SeedV2, header: string[]): string {
-  const out = [
-    ...header.map((h) => `-- ${h}`),
-    "begin;",
-    "delete from public.theory_edges;",
-    "delete from public.theory_lines;",
-    "delete from public.dataset_version;",
-    // built_at defaults to the seeding time (the build output has no timestamp: the seed stays deterministic)
-    `insert into public.dataset_version (hash) values (${str(seed.version.hash)});`,
-    ...inserts(
-      "theory_edges",
-      "from_epd, san, to_epd, games, white_wins, draws, black_wins, is_ext",
-      seed.edges.map((e) => `(${str(e.from_epd)}, ${str(e.san)}, ${str(e.to_epd)}, ${e.games}, ${e.white_wins}, ${e.draws}, ${e.black_wins}, ${e.is_ext})`)
+export interface SqlFile {
+  /** file name; the files apply in name order */
+  name: string;
+  sql: string;
+}
+
+/** Each file stays under 1 MB: editors and file viewers truncate bigger ones. */
+export const MAX_SQL_FILE_BYTES = 900_000;
+
+/** Pack whole statements into files of ≤ MAX_SQL_FILE_BYTES, each its own transaction. */
+function packFiles(prefix: string, header: string[], statements: string[]): SqlFile[] {
+  const files: SqlFile[] = [];
+  const head = header.map((h) => `-- ${h}`).join("\n");
+  let cur: string[] = [];
+  let size = 0;
+  const flush = () => {
+    if (!cur.length) return;
+    const n = String(files.length + 1).padStart(2, "0");
+    files.push({ name: `${prefix}-${n}.sql`, sql: `${head}\nbegin;\n${cur.join("\n")}\ncommit;\n` });
+    cur = [];
+    size = 0;
+  };
+  for (const st of statements) {
+    const b = Buffer.byteLength(st) + 1;
+    if (size + b > MAX_SQL_FILE_BYTES - 2_000) flush();
+    cur.push(st);
+    size += b;
+  }
+  flush();
+  return files;
+}
+
+/** Fails the load (and so the seed) when a table doesn't hold exactly the rows it should. */
+const verify = (counts: [string, number][]) =>
+  [
+    "do $$",
+    "begin",
+    ...counts.map(
+      ([t, n]) => `  if (select count(*) from public.${t}) <> ${n} then raise exception '${t}: expected ${n} rows, found %%', (select count(*) from public.${t}); end if;`
     ),
-    ...inserts("theory_lines", "id, eco, name, sans, final_epd", seed.lines.map((l) => `(${str(l.id)}, ${str(l.eco)}, ${str(l.name)}, ${arr(l.sans)}, ${str(l.final_epd)})`), 500),
-    "commit;",
-    "analyze public.theory_edges, public.theory_lines;",
+    "end $$;",
+  ].join("\n").replace(/%%/g, "%");
+
+/**
+ * Reference data (theory_edges, theory_lines, dataset_version), re-runnable on
+ * every dataset update, as numbered files of < 1 MB (supabase/seed/*.sql).
+ * Rows are deleted table by table — never TRUNCATE … CASCADE, which could reach
+ * user tables through an FK; an unexpected FK makes the delete fail loudly
+ * instead (ADR 0004). The version row goes first and comes back last, after
+ * the row counts check out: while a seed is incomplete the server's version
+ * doesn't match any client, so signed-in clients grade locally.
+ */
+export function seedFiles(seed: SeedV2, header: string[]): SqlFile[] {
+  const head = header.map((h) => `-- ${h}`).join("\n");
+  return [
+    {
+      name: "00-reset.sql",
+      sql: `${head}\nbegin;\ndelete from public.dataset_version;\ndelete from public.theory_edges;\ndelete from public.theory_lines;\ncommit;\n`,
+    },
+    ...packFiles(
+      "10-theory_edges",
+      header,
+      inserts(
+        "theory_edges",
+        "from_epd, san, to_epd, games, white_wins, draws, black_wins, is_ext",
+        seed.edges.map((e) => `(${str(e.from_epd)}, ${str(e.san)}, ${str(e.to_epd)}, ${e.games}, ${e.white_wins}, ${e.draws}, ${e.black_wins}, ${e.is_ext})`)
+      )
+    ),
+    ...packFiles("20-theory_lines", header, inserts("theory_lines", "id, eco, name, sans, final_epd", seed.lines.map((l) => `(${str(l.id)}, ${str(l.eco)}, ${str(l.name)}, ${arr(l.sans)}, ${str(l.final_epd)})`), 500)),
+    {
+      name: "90-dataset_version.sql",
+      sql: [
+        head,
+        "begin;",
+        verify([["theory_edges", seed.edges.length], ["theory_lines", seed.lines.length]]),
+        // built_at defaults to the seeding time (the build output has no timestamp: the seed stays deterministic)
+        `insert into public.dataset_version (hash) values (${str(seed.version.hash)});`,
+        "commit;",
+        "analyze public.theory_edges, public.theory_lines;",
+        "",
+      ].join("\n"),
+    },
   ];
-  return out.join("\n") + "\n";
 }
 
 /**
- * The one-time v1 → v2 staging rows, loaded after 0004 and the reference
- * seed, read by scripts/supabase/migrate-v2-data.sql (which drops them).
+ * The one-time v1 → v2 staging rows (scripts/supabase/seed-legacy-v1/*.sql),
+ * loaded after 0004 and the reference seed, read by
+ * scripts/supabase/migrate-v2-data.sql (which drops them). The last file
+ * checks the row counts.
  */
-export function legacySql(seed: SeedV2, header: string[]): string {
-  const out = [
-    ...header.map((h) => `-- ${h}`),
-    "begin;",
-    "delete from public.legacy_row_answers_v1;",
-    "delete from public.legacy_answers_v1;",
-    "delete from public.legacy_openings_v1;",
-    ...inserts(
-      "legacy_openings_v1",
-      "opening_id, row_id, final_epd, sans, best_course_id, best_line_id",
-      seed.legacyOpenings.map((o) => `(${o.opening_id}, ${str(o.row_id)}, ${str(o.final_epd)}, ${arr(o.sans)}, ${str(o.best_course_id)}, ${str(o.best_line_id)})`)
+export function legacyFiles(seed: SeedV2, header: string[]): SqlFile[] {
+  const head = header.map((h) => `-- ${h}`).join("\n");
+  return [
+    {
+      name: "00-reset.sql",
+      sql: `${head}\nbegin;\ndelete from public.legacy_row_answers_v1;\ndelete from public.legacy_answers_v1;\ndelete from public.legacy_openings_v1;\ncommit;\n`,
+    },
+    ...packFiles(
+      "10-legacy_openings_v1",
+      header,
+      inserts(
+        "legacy_openings_v1",
+        "opening_id, row_id, final_epd, sans, best_course_id, best_line_id",
+        seed.legacyOpenings.map((o) => `(${o.opening_id}, ${str(o.row_id)}, ${str(o.final_epd)}, ${arr(o.sans)}, ${str(o.best_course_id)}, ${str(o.best_line_id)})`)
+      )
     ),
-    ...inserts(
-      "legacy_row_answers_v1",
-      "opening_id, ply, epd, answer_san, course_id",
-      seed.rowAnswers.map((r) => `(${r.opening_id}, ${r.ply}, ${str(r.epd)}, ${str(r.answer_san)}, ${str(r.course_id)})`)
+    ...packFiles(
+      "20-legacy_row_answers_v1",
+      header,
+      inserts("legacy_row_answers_v1", "opening_id, ply, epd, answer_san, course_id", seed.rowAnswers.map((r) => `(${r.opening_id}, ${r.ply}, ${str(r.epd)}, ${str(r.answer_san)}, ${str(r.course_id)})`))
     ),
-    ...inserts("legacy_answers_v1", "epd, answer_san, course_id", seed.answers.map((a) => `(${str(a.epd)}, ${str(a.answer_san)}, ${str(a.course_id)})`)),
-    "commit;",
-    "analyze public.legacy_row_answers_v1, public.legacy_answers_v1, public.legacy_openings_v1;",
+    ...packFiles("30-legacy_answers_v1", header, inserts("legacy_answers_v1", "epd, answer_san, course_id", seed.answers.map((a) => `(${str(a.epd)}, ${str(a.answer_san)}, ${str(a.course_id)})`))),
+    {
+      name: "90-verify.sql",
+      sql: [
+        head,
+        verify([["legacy_openings_v1", seed.legacyOpenings.length], ["legacy_row_answers_v1", seed.rowAnswers.length], ["legacy_answers_v1", seed.answers.length]]),
+        "analyze public.legacy_row_answers_v1, public.legacy_answers_v1, public.legacy_openings_v1;",
+        "",
+      ].join("\n"),
+    },
   ];
-  return out.join("\n") + "\n";
 }

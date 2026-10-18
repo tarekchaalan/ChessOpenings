@@ -13,7 +13,7 @@
  *        public/data/openings.v1.json   — compact runtime dataset
  *        public/data/openings.meta.json — version, source pins, counts, sha256
  *        supabase/seed.v1.sql           — v1 theory tables (the dry run's v1 baseline;
- *                                         the live seed.sql is v2: scripts/supabase/gen-seed-v2.ts)
+ *                                         the live seed is v2: supabase/seed/, scripts/supabase/gen-seed-v2.ts)
  *
  * Usage:  npm run ingest            (downloads into data/cache if missing)
  *         npm run ingest -- --skip-corpus   (graph only, no frequency stats)

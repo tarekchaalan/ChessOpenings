@@ -1,8 +1,9 @@
 -- v1 → v2 user-data migration (ADR 0004 step 3). IRREVERSIBLE for the live
 -- tables; the v1 rows are KEPT as *_v1_backup tables (never dropped here).
 --
--- Run once, AFTER supabase/migrations/0004_v2_schema.sql, supabase/seed.sql and
--- scripts/supabase/seed-legacy-v1.sql (legacy_openings_v1 / legacy_row_answers_v1 / legacy_answers_v1):
+-- Run once, AFTER supabase/migrations/0004_v2_schema.sql, supabase/seed/*.sql and
+-- scripts/supabase/seed-legacy-v1/*.sql (legacy_openings_v1 / legacy_row_answers_v1 /
+-- legacy_answers_v1; its last file checks the row counts), each set in file-name order:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/supabase/migrate-v2-data.sql
 -- Re-running is a no-op (guarded on srs_cards_v1_backup existing).
 --
@@ -28,7 +29,7 @@ begin
     raise exception 'migrate-v2-data: srs_cards_v2 missing: apply 0004_v2_schema.sql first';
   end if;
   if not exists (select 1 from public.legacy_answers_v1) then
-    raise exception 'migrate-v2-data: legacy_answers_v1 is empty: load scripts/supabase/seed-legacy-v1.sql first';
+    raise exception 'migrate-v2-data: legacy_answers_v1 is empty: load scripts/supabase/seed-legacy-v1/*.sql first';
   end if;
 
   -- ── cards ─────────────────────────────────────────────────────────────────

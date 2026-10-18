@@ -2,14 +2,14 @@
  * Dry run of the v1 → v2 server migration (ADR 0004) on a LOCAL Postgres.
  * Refuses any non-local database. Creates a scratch database, builds the v1
  * world (migrations 0001–0003 + the v1 seed + synthetic v1 users from the
- * real v1 fixture), then applies, in order: 0004 → seed.sql →
- * seed-legacy-v1.sql → migrate-v2-data.sql, and checks the result. Report: docs/qa/phase5/dry-run-v2.md.
+ * real v1 fixture), then applies, in order: 0004 → supabase/seed/*.sql →
+ * scripts/supabase/seed-legacy-v1/*.sql → migrate-v2-data.sql, and checks the result. Report: docs/qa/phase5/dry-run-v2.md.
  *
  *   scripts/supabase/local-pg.sh start          # or a `supabase start` stack
  *   DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres npx tsx scripts/supabase/dry-run-v2.ts
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseDatasetV2 } from "../../src/lib/openings";
@@ -55,6 +55,13 @@ function file(path: string): { ms: number; notices: string } {
   const r = spawnSync("psql", [...PSQL, url, "-f", path], { encoding: "utf8", maxBuffer: 1 << 28 });
   if (r.status !== 0) throw new Error(`${path}:\n${r.stderr}`);
   return { ms: Date.now() - t, notices: r.stderr.trim() };
+}
+/** every .sql file of a directory, in name order (the generated seeds); total ms */
+function dir(path: string): number {
+  return readdirSync(path)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .reduce((ms, f) => ms + file(join(path, f)).ms, 0);
 }
 /** expect the statement to fail (permission checks) */
 function denied(q: string): string | null {
@@ -147,8 +154,8 @@ check("0004 moves no user data", ["srs_cards", "opening_progress", "quiz_attempt
 check("0004 revokes the v1 RPCs from clients", !!denied(`set role authenticated; select public.answer_challenge('${USERS.alice}', 'e4', 1000, false)`));
 
 // 2. v2 seed
-timings.push(["seed.sql (v2 reference)", file(join(ROOT, "supabase/seed.sql")).ms]);
-timings.push(["seed-legacy-v1.sql (staging)", file(join(ROOT, "scripts/supabase/seed-legacy-v1.sql")).ms]);
+timings.push(["supabase/seed/*.sql (v2 reference)", dir(join(ROOT, "supabase/seed"))]);
+timings.push(["seed-legacy-v1/*.sql (staging)", dir(join(ROOT, "scripts/supabase/seed-legacy-v1"))]);
 const meta = JSON.parse(readFileSync(join(ROOT, "public/data/openings.v2.meta.json"), "utf8"));
 check("dataset_version = the build's outputHash", sql("select hash from public.dataset_version") === meta.outputHash);
 
@@ -200,7 +207,7 @@ check("course progress = guest migration", JSON.stringify(cp) === JSON.stringify
 // idempotence + reseed safety
 const rerun = file(join(ROOT, "scripts/supabase/migrate-v2-data.sql"));
 check("re-running the data migration is a no-op", JSON.stringify(counts()) === JSON.stringify(after) && /already applied/.test(rerun.notices));
-file(join(ROOT, "supabase/seed.sql"));
+dir(join(ROOT, "supabase/seed"));
 const afterReseed = counts();
 check("re-seeding (delete per table, no TRUNCATE CASCADE) leaves user tables intact", ["srs_cards", "course_progress", "quiz_attempts", "profiles", "srs_cards_v1_backup"].every((t) => afterReseed[t] === after[t]));
 

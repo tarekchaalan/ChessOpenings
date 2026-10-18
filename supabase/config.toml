@@ -1,11 +1,16 @@
 # Supabase CLI configuration for local development.
 # `supabase start` gives you a full local stack; `supabase db reset` applies
-# migrations/ and then seed.sql (the generated theory data).
+# migrations/ and then seed/*.sql (the generated v2 theory data, split into
+# < 1 MB files that apply in name order; see [db.seed]).
 # Auth settings mirror the hosted project's dashboard configuration.
 project_id = "chess-openings-trainer"
 
 [db]
 port = 54322
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed/*.sql"]
 
 [api]
 port = 54321

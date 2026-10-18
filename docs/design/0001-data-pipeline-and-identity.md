@@ -76,7 +76,7 @@
 | `public/data/openings.v2.meta.json` | `inputHash` (sha256 over sorted relative paths + contents of all watched inputs + position-stats sha + `BUILD_LIB_VERSION`), `outputHash`, counts, warnings, errors, `unassigned`, timings. |
 | `public/data/openings.changelog.json` | Diff vs the previous build. The baseline for the first build is the rows in the committed `openings.v1.json`. Contains added / removed / renamed rows plus per-hub and per-course line deltas. Keeps the last 20 entries. |
 | `public/data/legacy-map.v1.json` | v1 index → `{rowId, finalEpd, sans, bestCourseId, bestLineId}` |
-| `supabase/seed.sql` | v2 theory tables (ADR 0004) |
+| `supabase/seed/*.sql` | v2 theory tables (ADR 0004), in < 1 MB files |
 
 - **Determinism:** the same inputs produce byte-identical outputs. Timings live in meta only, outside `outputHash`; `builtAt` is not part of any hash.
 - `openings:check` recomputes `inputHash` and exits 1 if it differs from the committed meta or if the build has errors. It runs in `npm run lint`.

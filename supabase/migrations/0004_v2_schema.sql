@@ -2,9 +2,9 @@
 --
 -- Order of operations (also the dry run's, scripts/supabase/dry-run-v2.ts):
 --   1. this migration: new tables/columns, FK changes, grants, train_commit;
---   2. the v2 seed: supabase/seed.sql (theory_edges + is_ext, theory_lines,
---      dataset_version; re-runnable), then scripts/supabase/seed-legacy-v1.sql
---      (the one-time legacy_* staging rows);
+--   2. the v2 seed: supabase/seed/*.sql (theory_edges + is_ext, theory_lines,
+--      dataset_version; re-runnable), then scripts/supabase/seed-legacy-v1/*.sql
+--      (the one-time legacy_* staging rows); each set applies in file-name order;
 --   3. scripts/supabase/migrate-v2-data.sql: cards + progress move to v2, the
 --      v1 tables are renamed *_v1_backup (never dropped), staging tables dropped.
 --
