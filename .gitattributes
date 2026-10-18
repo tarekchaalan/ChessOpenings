@@ -1,0 +1,2 @@
+*.tsv text eol=lf
+*.pgn text eol=lf

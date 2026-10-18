@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { GraduationCap, ChevronRight } from "lucide-react";
 import OpeningSearch from "@/components/OpeningSearch";
-import { useDataset, useProgressSummary } from "@/lib/hooks";
+import { useLegacyDataset, useProgressSummary } from "@/lib/hooks";
 import { openingBlurb } from "@/lib/explain";
 import { defaultSide, openingCatalog } from "@/lib/openings";
 
 export default function LearnCatalog() {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   const { summary } = useProgressSummary();
   const router = useRouter();
 

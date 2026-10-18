@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Dataset, loadDataset } from "./openings";
+import { Dataset, loadLegacyDataset } from "./openings";
+import { useLiveDataset } from "./dataset-live";
 import { useAuth } from "./supabase/AuthProvider";
 import { getSupabase } from "./supabase/client";
 import { localReader } from "./progress/local";
@@ -10,11 +11,20 @@ import { LocalQuizBackend } from "./quiz/local";
 import { RemoteQuizBackend } from "./quiz/remote";
 import type { QuizBackend } from "./quiz/types";
 
+/** The live v2 dataset (stable row ids, hot-reloads when the data changes). */
 export function useDataset(): { ds: Dataset | null; error: string | null } {
+  return useLiveDataset();
+}
+
+/**
+ * The legacy v1 dataset, whose row indices are still the identity used by
+ * the Learn/Quiz screens and guest progress until Phases 4–5 replace them.
+ */
+export function useLegacyDataset(): { ds: Dataset | null; error: string | null } {
   const [ds, setDs] = useState<Dataset | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    loadDataset().then(setDs).catch((e) => setError(String(e)));
+    loadLegacyDataset().then(setDs).catch((e) => setError(String(e)));
   }, []);
   return { ds, error };
 }

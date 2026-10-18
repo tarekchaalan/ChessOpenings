@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import Board from "@/components/Board";
-import { useDataset, useQuizBackend } from "@/lib/hooks";
+import { useLegacyDataset, useQuizBackend } from "@/lib/hooks";
 import { replayLine, LineState, pushSan } from "@/lib/line";
 import { Dataset, familyOf, nameForLine } from "@/lib/openings";
 import { buildPlaylist, PlaylistLine, shuffled, startPlyFor } from "@/lib/quiz/playlist";
@@ -51,7 +51,7 @@ interface MissedPosition {
 }
 
 export default function QuizSession({ config, title }: { config: QuizConfig; title: string }) {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   const backend = useQuizBackend(ds);
 
   const [phase, setPhase] = useState<Phase>("loading");

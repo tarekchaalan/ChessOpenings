@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import Board from "@/components/Board";
 import WinBar from "@/components/WinBar";
-import { useDataset } from "@/lib/hooks";
+import { useLegacyDataset } from "@/lib/hooks";
 import { explainMove, fenToEpd, openingBlurb } from "@/lib/explain";
 import { greedyMainline } from "@/lib/mainline";
 import {
@@ -49,7 +49,7 @@ interface WalkStep {
 }
 
 export default function LearnClient({ openingId }: { openingId: number }) {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   if (!ds) {
     return (
       <div className="py-6 grid lg:grid-cols-[minmax(0,1fr)_400px] gap-6 animate-pulse">

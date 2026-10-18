@@ -27,6 +27,7 @@ import { fetchMasterStats, LiveStats } from "@/lib/lichess";
 import { playMoveSound, preloadSounds } from "@/lib/sound";
 import {
   Dataset,
+  loadLegacyDataset,
   MoveStat,
   nameForLine,
   nodeAt,
@@ -224,22 +225,7 @@ function Explorer({ ds }: { ds: Dataset }) {
           onPlay={play}
           live={live}
         />
-        {opening && (
-          <div className="flex gap-2">
-            <Link
-              href={`/learn/${opening.id}`}
-              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <GraduationCap size={16} /> Learn this opening
-            </Link>
-            <Link
-              href={`/quiz/${opening.id}`}
-              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-edge bg-surface text-sm font-medium hover:bg-surface-2 transition-colors"
-            >
-              <Swords size={16} /> Quiz me
-            </Link>
-          </div>
-        )}
+        {opening && <LegacyTrainLinks opening={opening} />}
         <KeyboardHints />
       </div>
     </div>
@@ -263,7 +249,7 @@ function OpeningHeader({ opening, line }: { opening: Opening | null; line: LineS
       <div className="min-w-0 flex-1">
         {opening ? (
           <>
-            <div className="font-medium leading-tight truncate">{opening.name}</div>
+            <div className="font-medium leading-tight truncate" data-testid="opening-name">{opening.name}</div>
             <div className="text-xs text-muted font-mono">{opening.eco}</div>
           </>
         ) : (
@@ -462,6 +448,54 @@ function MovesPanel({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * Learn/Quiz still run on the legacy v1 dataset (row-index ids) until the
+ * v2 trainer replaces them; map this v2 row to its v1 id by move sequence.
+ * Rows that are new in v2 have no v1 screen yet.
+ */
+function LegacyTrainLinks({ opening }: { opening: Opening }) {
+  const [v1Id, setV1Id] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    const key = opening.sans.map((s) => s.replace(/[+#]$/, "")).join(" ");
+    loadLegacyDataset()
+      .then((v1) => {
+        const hit = v1.openings.find((o) => o.sans.map((s) => s.replace(/[+#]$/, "")).join(" ") === key);
+        if (alive) setV1Id(hit ? hit.id : null);
+      })
+      .catch(() => alive && setV1Id(null));
+    return () => {
+      alive = false;
+    };
+  }, [opening]);
+  if (v1Id === null) {
+    return (
+      <p className="text-xs text-muted rounded-lg border border-dashed border-edge px-3 py-2">
+        New in this data update — training for this line arrives with the new trainer.
+      </p>
+    );
+  }
+  const disabled = v1Id === undefined;
+  return (
+    <div className="flex gap-2">
+      <Link
+        href={disabled ? "#" : `/learn/${v1Id}`}
+        aria-disabled={disabled}
+        className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 transition-opacity ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+      >
+        <GraduationCap size={16} /> Learn this opening
+      </Link>
+      <Link
+        href={disabled ? "#" : `/quiz/${v1Id}`}
+        aria-disabled={disabled}
+        className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-edge bg-surface text-sm font-medium hover:bg-surface-2 transition-colors ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+      >
+        <Swords size={16} /> Quiz me
+      </Link>
     </div>
   );
 }

@@ -18,11 +18,11 @@ import {
   Trophy,
 } from "lucide-react";
 import { useAuth } from "@/lib/supabase/AuthProvider";
-import { useDataset, useProgressSummary } from "@/lib/hooks";
+import { useLegacyDataset, useProgressSummary } from "@/lib/hooks";
 import { openingCatalog } from "@/lib/openings";
 
 export default function Dashboard() {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   const { summary } = useProgressSummary();
   const { user, username, configured } = useAuth();
 
@@ -229,7 +229,7 @@ function StatCard({
   );
 }
 
-function GettingStarted({ ds }: { ds: NonNullable<ReturnType<typeof useDataset>["ds"]> }) {
+function GettingStarted({ ds }: { ds: NonNullable<ReturnType<typeof useLegacyDataset>["ds"]> }) {
   const picks = useMemo(() => openingCatalog(ds).slice(0, 3), [ds]);
   const steps = [
     {

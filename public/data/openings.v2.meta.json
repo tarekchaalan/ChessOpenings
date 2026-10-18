@@ -1,0 +1,29 @@
+{
+  "format": "chess-openings-trainer/meta@2",
+  "lib": "2.0.0-phase1",
+  "inputHash": "77620deed8295e08366b84602c863360f2b26e894382e3b728c38c22e89e85ec",
+  "outputHash": "90aad103cdde8bf449adafad369f70a0ef396cc17298bd9ad5d6a7242f219a89",
+  "bytes": 1358309,
+  "gzipBytes": 250677,
+  "statsSha": "0d4cc77060341885f464d79c1879a01c901f2f93f6cf7a9cff54f1007eeb8284",
+  "counts": {
+    "files": 5,
+    "rows": 3865,
+    "positions": 7983,
+    "theoryMoves": 8192,
+    "aliases": 0,
+    "errors": 0,
+    "warnings": 0,
+    "statsCoveredPositions": 3465
+  },
+  "issues": [],
+  "unassigned": [],
+  "timingsMs": {
+    "hash": 1,
+    "parse": 30,
+    "replay": 705,
+    "graph": 9,
+    "encode": 36,
+    "diff": 58
+  }
+}

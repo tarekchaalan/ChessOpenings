@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ListMusic, Swords } from "lucide-react";
 import QuizSession from "./QuizSession";
-import { useDataset } from "@/lib/hooks";
+import { useLegacyDataset } from "@/lib/hooks";
 import { defaultSide, familyOf } from "@/lib/openings";
 import { distinctBranchCount } from "@/lib/quiz/playlist";
 
 export default function QuizStart({ openingId }: { openingId: number }) {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   const [side, setSide] = useState<"white" | "black" | null>(null);
   const [playlistSize, setPlaylistSize] = useState<number | null>(null);
 

@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { AlarmClock, ChevronRight, Swords } from "lucide-react";
 import OpeningSearch from "@/components/OpeningSearch";
-import { useDataset, useProgressSummary } from "@/lib/hooks";
+import { useLegacyDataset, useProgressSummary } from "@/lib/hooks";
 import { defaultSide, openingCatalog } from "@/lib/openings";
 
 export default function QuizHome() {
-  const { ds } = useDataset();
+  const { ds } = useLegacyDataset();
   const { summary } = useProgressSummary();
   const router = useRouter();
 
