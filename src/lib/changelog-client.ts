@@ -3,7 +3,7 @@
  * "+N new lines" badges (§3.2 A, §4.8): the latest data build's per-hub row
  * deltas, dismissable per user (localStorage, best-effort).
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { subscribeDataset } from "./dataset-live";
 import type { Changelog, ChangelogEntry } from "./openings-build/diff";
 
@@ -36,7 +36,7 @@ export function useLatestChanges(): { entry: ChangelogEntry | null; seen: Record
       alive = false;
     };
   }, [tick]);
-  const dismiss = (hub: string) => {
+  const dismiss = useCallback((hub: string) => {
     if (!entry) return;
     const next = { ...readSeen(), [hub]: entry.toHash };
     try {
@@ -45,7 +45,7 @@ export function useLatestChanges(): { entry: ChangelogEntry | null; seen: Record
       // best-effort
     }
     setSeen(next);
-  };
+  }, [entry]);
   return { entry, seen, dismiss };
 }
 

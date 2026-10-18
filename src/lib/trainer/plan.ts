@@ -106,11 +106,37 @@ export function dueCourses(cards: Record<string, CardState>, now = new Date()): 
   return [...ids].sort();
 }
 
-/** Drill: a random line from the chosen chapters (not `avoid` when there's a choice), started at its trunk. */
-export function drillPick(course: Course, chapters: number[] | null, avoid: number | null, rnd = Math.random): { line: number; startPly: number } | null {
-  const pool = course.lines.filter((l) => !chapters || chapters.includes(l.chapter));
+/**
+ * Drill: a random line from the chosen chapters (not `avoid` when there's a
+ * choice), started at its chapter trunk. With `under`, only lines through
+ * that position, started there (Explore's "Train from here").
+ */
+export function drillPick(
+  course: Course,
+  chapters: number[] | null,
+  avoid: number | null,
+  rnd = Math.random,
+  under: number | null = null
+): { line: number; startPly: number } | null {
+  // a line that ends at `under` has nothing below it to drill
+  const pool = course.lines.filter((l) => (!chapters || chapters.includes(l.chapter)) && (under === null || (l.nodes.includes(under) && l.nodes.indexOf(under) < l.sans.length)));
   if (!pool.length) return null;
   const choices = pool.length > 1 && avoid !== null ? pool.filter((l) => l.idx !== avoid) : pool;
   const line = choices[Math.floor(rnd() * choices.length)];
-  return { line: line.idx, startPly: chapterTrunk(course, line) };
+  return { line: line.idx, startPly: under !== null ? line.nodes.indexOf(under) : chapterTrunk(course, line) };
+}
+
+/**
+ * The line of `course` matching a line of the same course derived without
+ * the learner's overrides: same id, else the longest shared move prefix.
+ */
+export function sameLine(course: Course, line: CourseLine): CourseLine | null {
+  const same = course.lines.find((l) => l.id === line.id);
+  if (same) return same;
+  const shared = (l: CourseLine) => {
+    let i = 0;
+    while (i < l.sans.length && i < line.sans.length && l.sans[i] === line.sans[i]) i++;
+    return i;
+  };
+  return [...course.lines].sort((a, b) => shared(b) - shared(a) || a.idx - b.idx)[0] ?? null;
 }

@@ -413,17 +413,23 @@ export function buildCatalog(model: Model, hubs: Hub[], memo?: CourseMemo): Cata
     void hi;
   });
 
-  // ── position → best (course, line) for the side to move
+  // ── position → best (course, line) for the side to move. Ranked by how
+  // often masters play the course's move here (4.Ba4 96% beats 4.Bxc6 4%),
+  // then recommended, root and σ-lines first, then the line's reach.
   const pos = new Array<number>(model.nodes.length * 2).fill(-1);
-  const bestReach = new Float64Array(model.nodes.length).fill(-1);
+  const bestScore = new Float64Array(model.nodes.length).fill(-1);
   courses.forEach((c, ci) => {
-    const variant = !!c.system.parent;
+    const rank = (rawSystems[ci].recommended ? 4 : 0) + (c.system.parent ? 0 : 2);
     c.lines.forEach((l) => {
-      const score = l.reach * (variant ? 0.5 : 1) * (l.early ? 0.25 : 1);
       for (const n of l.nodes) {
         if ((model.nodes[n].white ? "white" : "black") !== c.side) continue;
-        if (score > bestReach[n]) {
-          bestReach[n] = score;
+        const nd = model.nodes[n];
+        const book = c.bookMoves.get(n);
+        const mv = book === undefined ? undefined : nd.moves.find((m) => m.norm === book);
+        const share = mv && nd.games ? mv.games / nd.games : 0;
+        const score = Math.round(share * 100) * 100 + rank * 10 + (l.early ? 0 : 1) * 5 + l.reach;
+        if (score > bestScore[n]) {
+          bestScore[n] = score;
           pos[2 * n] = ci;
           pos[2 * n + 1] = l.idx;
         }
@@ -551,6 +557,14 @@ export function resolveLegacy(
   const name = model.nodes[node].nameRow;
   const { hubsOfRow, hubSide } = hubIndex(result);
   const ownHubs = new Set(name === -1 ? [] : hubsOfRow.get(name) ?? []);
+  // the position index already picks the course whose move masters play here
+  const pci = result.catalog.pos[2 * node];
+  if (pci >= 0) {
+    const c = result.courses[pci];
+    if ((ownHubs.size === 0 || ownHubs.has(c.hub)) && c.side === hubSide.get(c.hub)) {
+      return { courseId: c.id, lineId: c.lines[result.catalog.pos[2 * node + 1]].id };
+    }
+  }
   let best: { score: number; courseId: string; lineId: string } | null = null;
   for (const [ci, li] of linesThrough(result).get(node) ?? []) {
     const c = result.courses[ci];

@@ -42,6 +42,8 @@ export interface Run {
   tier: TierKey;
   chapters: number[] | null;
   fromStart: boolean;
+  /** Drill only below this position (node of run.ds) */
+  under?: number | null;
   /** cross-course review (/train/review) */
   global?: boolean;
   /** "Make it my move": replay this move once the session reaches startPly */
@@ -351,7 +353,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       }
     }
     if (run.mode === "drill") {
-      const pick = drillPick(course, run.chapters, line.idx);
+      const pick = drillPick(course, run.chapters, line.idx, Math.random, run.under ?? null);
       if (pick) endActions.push({ id: "next", label: "Next drill line", go: () => switchLine(pick.line, run.fromStart ? 0 : pick.startPly) });
     }
   }
@@ -543,7 +545,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
                 chapters={run.chapters}
                 fromStart={run.fromStart}
                 onChange={(chapters, fromStart) => {
-                  const pick = drillPick(course, chapters, null);
+                  const pick = drillPick(course, chapters, null, Math.random, run.under ?? null);
                   if (pick) start({ ...run, chapters, fromStart, line: pick.line, startPly: fromStart ? 0 : pick.startPly, pendingMove: undefined });
                 }}
               />

@@ -9,9 +9,8 @@ import { useAuth } from "@/lib/supabase/AuthProvider";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
+  { href: "/openings", label: "Openings" },
   { href: "/explore", label: "Explore" },
-  { href: "/learn", label: "Learn" },
-  { href: "/quiz", label: "Quiz" },
   { href: "/leaderboard", label: "Leaderboard" },
 ];
 
@@ -50,7 +49,7 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center gap-1 text-sm">
           {NAV.map((n) => {
-            const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+            const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href) || (n.href === "/openings" && pathname.startsWith("/train"));
             return (
               <Link
                 key={n.href}
@@ -121,7 +120,7 @@ export default function Header() {
       {open && (
         <nav className="md:hidden border-t border-edge px-4 py-2 flex flex-col bg-background">
           {[...NAV, { href: "/settings", label: "Settings" }].map((n) => {
-            const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+            const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href) || (n.href === "/openings" && pathname.startsWith("/train"));
             return (
               <Link
                 key={n.href}

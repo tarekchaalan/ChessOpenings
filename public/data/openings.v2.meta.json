@@ -1,10 +1,10 @@
 {
   "format": "chess-openings-trainer/meta@2",
   "lib": "2.0.0-phase2",
-  "inputHash": "fdb8966b29ac1aca3b2a0118836e380f25d97af717b0d21bc477cd4b8e3da803",
-  "outputHash": "839f4c6ed96ab8bee1e70dba1d72bb0f03181d728ca4f73c84b4508e8d5ff2b4",
-  "bytes": 2270937,
-  "gzipBytes": 400849,
+  "inputHash": "3f36099daa072e1530ac83169e0feba4b236cc354ec67cc933a662c15568e08e",
+  "outputHash": "e49997fa56ed8c42fe59531ad93c525eecc7080499df9bbbb7110fd662d5d18e",
+  "bytes": 2270913,
+  "gzipBytes": 400884,
   "statsSha": "0d4cc77060341885f464d79c1879a01c901f2f93f6cf7a9cff54f1007eeb8284",
   "counts": {
     "files": 5,
@@ -1016,16 +1016,16 @@
     }
   ],
   "timingsMs": {
-    "hash": 4,
-    "parse": 1104,
-    "replay": 2868,
-    "graph": 136,
-    "encode": 583,
-    "hubs": 924,
-    "extension": 1833,
-    "courses": 2464,
-    "annotations": 83,
-    "serialize": 656,
-    "diff": 803
+    "hash": 2,
+    "parse": 145,
+    "replay": 1138,
+    "graph": 72,
+    "encode": 123,
+    "hubs": 327,
+    "extension": 878,
+    "courses": 1854,
+    "annotations": 52,
+    "serialize": 158,
+    "diff": 161
   }
 }

@@ -24,6 +24,7 @@ import {
 } from "@/lib/courses-client";
 import { newLinesFor, useLatestChanges } from "@/lib/changelog-client";
 import type { Dataset } from "@/lib/openings";
+import { useStartedCourse } from "@/lib/use-course-progress";
 
 export default function HubClient({ slug }: { slug: string }) {
   const { ds, error } = useDataset();
@@ -80,11 +81,11 @@ function Hub({ ds, hub }: { ds: Dataset; hub: RawHubSummary }) {
   const sigmaEpd = ds.nodes[hub.sigmaNode].epd;
 
   // a hub with a single system for this side goes straight to its course
+  const only = systems.length === 1 ? systems[0].slug : null;
+  const stay = params.get("stay") === "1";
   useEffect(() => {
-    if (systems.length === 1 && params.get("stay") !== "1") {
-      router.replace(courseHref(hub.slug, systems[0].slug, side) + "?from=hub");
-    }
-  }, [systems, hub.slug, side, router, params]);
+    if (only && !stay) router.replace(courseHref(hub.slug, only, side) + "?from=hub");
+  }, [only, stay, hub.slug, side, router]);
 
   const siblings = [...hub.siblings, ...(hub.minorSiblings ?? [])]
     .map((s) => cat.hubs.find((h) => h.slug === s))
@@ -107,7 +108,7 @@ function Hub({ ds, hub }: { ds: Dataset; hub: RawHubSummary }) {
 
       <div className="grid md:grid-cols-[280px_1fr] gap-8 items-start">
         <div className="max-w-[280px] w-full mx-auto">
-          <MiniBoard fen={sigmaEpd} orientation={side} approach={hub.sigma.map((s) => s)} label={`${hub.title} signature position`} />
+          <MiniBoard fen={sigmaEpd} orientation={side} approach={hub.sigma} label={`${hub.title} signature position`} />
           <div className="mt-2 text-xs text-muted font-mono">{formatMoves(hub.sigma)}</div>
           <WinBar white={hub.wdl[0]} draws={hub.wdl[1]} black={hub.wdl[2]} className="h-3 mt-2" />
           <div className="text-[11px] text-muted mt-1">{hub.games.toLocaleString()} master games reach this position</div>
@@ -120,7 +121,7 @@ function Hub({ ds, hub }: { ds: Dataset; hub: RawHubSummary }) {
             {fresh > 0 && (
               <span data-testid="new-lines-badge" className="inline-flex items-center gap-1 rounded-full bg-accent-soft text-accent text-xs font-medium pl-2 pr-1 py-0.5">
                 <Sparkles size={12} aria-hidden /> +{fresh} new line{fresh === 1 ? "" : "s"}
-                <button aria-label="Dismiss" onClick={() => dismiss(hub.slug)} className="p-0.5 rounded hover:bg-surface-2">
+                <button aria-label={`Dismiss the new-lines badge for ${hub.title}`} onClick={() => dismiss(hub.slug)} className="p-0.5 rounded hover:bg-surface-2">
                   <X size={11} />
                 </button>
               </span>
@@ -128,9 +129,22 @@ function Hub({ ds, hub }: { ds: Dataset; hub: RawHubSummary }) {
           </div>
           <p className="mt-2 text-sm text-muted leading-relaxed max-w-2xl">{hubDescription(hub)}</p>
           {hub.moveOrderNote && (
-            <p className="mt-2 text-xs text-muted">
-              Assumes {formatMoves(hub.sigma)}. Other move orders are covered as early-deviation chapters
-              {siblings.length ? " and in related openings below" : ""}.
+            <p className="mt-2 text-xs text-muted" data-testid="move-order-note">
+              Assumes {formatMoves(hub.sigma)}.{" "}
+              {siblings.length ? (
+                <>
+                  Other move orders: see{" "}
+                  {siblings.slice(0, 3).map((s, i) => (
+                    <span key={s.slug}>
+                      {i > 0 && ", "}
+                      <Link href={`${hubHref(s.slug)}?side=${side}`} className="text-accent hover:underline">{s.title}</Link>
+                    </span>
+                  ))}
+                  {siblings.length > 3 ? ` and ${siblings.length - 3} more below` : ""}; early deviations are chapters in each course.
+                </>
+              ) : (
+                "Other move orders are covered as early-deviation chapters in each course."
+              )}
             </p>
           )}
 
@@ -172,7 +186,7 @@ function Hub({ ds, hub }: { ds: Dataset; hub: RawHubSummary }) {
               <p className="text-xs text-muted mt-1">Other {hub.side === "white" ? "White" : "Black"} moves before this position lead to:</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {siblings.map((s) => (
-                  <Link key={s.slug} href={hubHref(s.slug)} className="text-sm px-3 py-1.5 rounded-md border border-edge bg-surface hover:bg-surface-2">
+                  <Link key={s.slug} href={`${hubHref(s.slug)}?side=${side}`} className="text-sm px-3 py-1.5 rounded-md border border-edge bg-surface hover:bg-surface-2">
                     {s.title}
                   </Link>
                 ))}
@@ -215,13 +229,25 @@ function SystemRow({
     walk(cat.systems.indexOf(system));
     return out;
   }, [systems, system, cat.systems]);
+  const progress = useStartedCourse(ds, c.id);
+  // reach: share of the master games at σ that go into this system; tags from its own position
+  // transpositions can bring more games into a system than pass through σ: cap at 100%
+  const share = hub.games >= 10 && system.signatureNode !== hub.sigmaNode ? Math.min(1, c.games / hub.games) : null;
+  const reach = share === null ? null : share > 0 && share < 0.01 ? "<1" : String(Math.round(share * 100));
+  const sig = ds.nodes[system.signatureNode];
+  const tags: string[] = [];
+  if (/gambit/i.test(system.name)) tags.push("gambit");
+  if (sig.games >= 30) {
+    if ((sig.white + sig.black) / sig.games >= 0.66) tags.push("sharp");
+    else if (sig.draws / sig.games >= 0.4) tags.push("solid");
+  }
   const label = system.name.startsWith(hub.title) ? system.name.slice(hub.title.length).replace(/^[:,]\s*/, "") || "Main system" : system.name;
   return (
     <li className="rounded-lg border border-edge bg-surface">
       <Link href={courseHref(hub.slug, system.slug, side)} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2 rounded-lg" data-testid="system-row">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium truncate">{label}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-medium break-words min-w-0">{label}</span>
             {system.recommended && (
               <span className="inline-flex items-center gap-1 text-[11px] text-gold border border-gold/40 rounded px-1.5">
                 <Star size={10} aria-hidden /> Recommended
@@ -231,8 +257,23 @@ function SystemRow({
           <div className="text-xs text-muted font-mono truncate">{system.defining.join(" ") || formatMoves(hub.sigma)}</div>
         </div>
         <div className="text-right text-xs text-muted shrink-0">
-          <div>{c.essentials[0]} essential · {c.lines} lines</div>
+          <div>
+            {reach !== null && <span className="text-foreground font-medium">{reach}% reach · </span>}
+            {c.essentials[0]} essential · {c.lines} lines
+          </div>
           <div>avg {c.avgDepth} plies · {c.games.toLocaleString()} games</div>
+          {(tags.length > 0 || progress) && (
+            <div className="mt-0.5 flex gap-1 justify-end items-center">
+              {tags.map((t) => (
+                <span key={t} className="px-1.5 rounded bg-surface-2 capitalize">{t}</span>
+              ))}
+              {progress && (
+                <span className="text-accent font-medium" data-testid="system-progress">
+                  {Math.round(progress.mastery * 100)}% mastered{progress.due ? ` · ${progress.due} due` : ""}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <ChevronRight size={16} className="text-muted shrink-0" aria-hidden />
       </Link>

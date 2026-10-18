@@ -212,3 +212,38 @@ These are decisions made while implementing, with the reason for each. Deviation
 | Watcher incremental | 0.6–2.0 s typical. A Ruy Lopez edit reuses 949 of 983 course derivations: the 971 kept courses plus rejected variant trials |
 
 **VM note.** Late in Phase 2 this VM began faulting fresh memory at ~25 µs/page: 1 GB took 26.7 s, against ≈ 0.2 s normally. All timings above swing 2–3× run to run. Earlier in the phase, the same live E2E passed at 1.7–2.0 s (course) and 2.2–2.6 s (hub badge).
+
+## Phase 4 amendments (implemented 2026-10-18)
+
+1. **Catalog search** (`src/lib/catalog-client.ts`, unit-tested).
+   - **ECO:** `B90` or `B9` keeps `searchOpenings`' prefix behaviour.
+   - **Move strings:** move numbers optional, SAN or figurine, `0-0` accepted. They match rows by move-sequence prefix, the exact position first.
+   - **Names:** everything else is accent-insensitive (`grunfeld` → Grünfeld). Each term must match a word by prefix, or within one typo for terms of ≥ 5 letters.
+   - Ties go to more master games. A hit opens the row's best listed hub (top-level and curated first). "Learn as <side>" goes to the deepest position on the row with a course for that side.
+2. **Style tags and level.** These are the rules in `styleTags` / `levelOf`:
+   - Curated tags win.
+   - *gambit*: the hub name says Gambit.
+   - *sharp*: ≥ 66% decisive at σ (≥ 30 games).
+   - *solid*: ≥ 40% draws at σ (≥ 30 games).
+   - *system*: curated only.
+   - Level comes from the recommended course: *beginner* ≤ 8 Essentials lines and average depth ≤ 12; *advanced* ≥ 60 lines or average depth ≥ 18; otherwise *intermediate*.
+   - On the hub page, each system gets the same rules applied to its own signature position.
+3. **Position index (`pos`) ranking.** It feeds Explore's "Learn this line" and the legacy map. It ranks by:
+   1. the master share of the course's move at the position;
+   2. then recommended, root and σ-lines;
+   3. then line reach.
+
+   Why: before this, 3…a6 as White resolved to the Exchange Variation (4.Bxc6, 4%) instead of the Closed (4.Ba4, 96%). Per-course reach is larger in small courses.
+4. **Legacy map fallback.** A v1 row whose final position is only a folded note maps through the deepest earlier position on a course line. This took unmapped v1 ids from 354 to **0** of 3,733.
+5. **Catalog side split.** "White" lists hubs whose defining side is White, and likewise for Black. The other side's top hubs sit in a collapsed "Facing … openings" section, with the courses you'd play as the chosen side.
+6. **Course and dashboard numbers** come from the v2 cards.
+   - **Line status:** new (no card), learning, due (any card reviewable), mastered (every card ≥ 21 days stability).
+   - **Time estimate:** ~10 s per review card.
+   - **Forecast:** today counts overdue and just-learned cards; later days bucket by the current schedule. The FSRS simulation and daily caps come in Phase 5.
+7. **Trainer URL parameters**, added to §3.2 D's `line=<id>`:
+   - `li=<index>`: from the position index. It indexes the course *without* overrides, and maps to the same line (or the longest shared prefix) in the learner's course.
+   - `start=<ply>`: open Learn at a position (course tree, Course Explorer).
+   - `under=<epd>`: Drill only lines continuing past that position, started there.
+   - `at=` + `play=`: "Make it my move" across systems.
+   - All are clamped to the line.
+8. **Deferred to Phase 6 (a11y pass):** arrow-key roving focus for the radio and tab groups. Today they work with Tab and Enter.

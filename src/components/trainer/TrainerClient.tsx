@@ -9,11 +9,11 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDataset } from "@/lib/hooks";
-import { courseHref, findSystem, hubSummary, modelOf, type RawHubSummary, type RawSystemSummary, type Side } from "@/lib/courses-client";
+import { courseHref, findSystem, hubSummary, loadCourse, modelOf, type RawHubSummary, type RawSystemSummary, type Side } from "@/lib/courses-client";
 import type { Dataset } from "@/lib/openings";
 import { chapterTrunk, moveLabel, type Mode } from "@/lib/trainer/session";
 import { normSan } from "@/lib/openings-build/model";
-import { drillPick, nextLearnLine, reviewQueue, type TierKey } from "@/lib/trainer/plan";
+import { drillPick, nextLearnLine, reviewQueue, sameLine, type TierKey } from "@/lib/trainer/plan";
 import { courseFor, globalQueue, learnStart } from "@/lib/trainer/client";
 import { allCards, courseProgress } from "@/lib/progress/store";
 import { getPrefs } from "@/lib/prefs";
@@ -50,7 +50,12 @@ function CourseTrainer({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; s
 
   const initial = useMemo((): Run | null => {
     const course = courseFor(ds, system);
-    const byId = (id: string | null) => (id ? course.lines.find((l) => l.id === id) ?? null : null);
+    // `line=<id>`, or `li=<index>` from the catalog's position index. That index
+    // is into the course without the learner's overrides: resolve it there, then
+    // find the same line (or the closest one) in the learner's course
+    const liParam = params.get("li") ?? "";
+    const plain = /^\d+$/.test(liParam) ? loadCourse(ds, system)?.lines[Number(liParam)] ?? null : null;
+    const byId = (id: string | null) => (id ? course.lines.find((l) => l.id === id) : undefined) ?? (plain ? sameLine(course, plain) : null);
     const base = { ds, hub, system, course, tier, chapters, fromStart };
     if (mode === "review") {
       const q = reviewQueue(modelOf(ds), course, allCards(), new Date(), getPrefs().targetRetention);
@@ -59,14 +64,23 @@ function CourseTrainer({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; s
       return { ...base, key: runSeq++, mode, line: item.line, startPly: item.startPly, endPly: item.endPly, graded: new Set(item.plies), queueLeft: q.length - 1 };
     }
     if (mode === "drill") {
+      // `under=<epd>`: only the subtree below that position
+      const underEpd = params.get("under");
+      const under = underEpd ? modelOf(ds).byEpd.get(underEpd) ?? null : null;
       const want = byId(params.get("line"));
-      const pick = want ? { line: want.idx, startPly: chapterTrunk(course, want) } : drillPick(course, chapters, null);
+      const pick =
+        want && (under === null || want.nodes.includes(under))
+          ? { line: want.idx, startPly: under !== null ? want.nodes.indexOf(under) : chapterTrunk(course, want) }
+          : drillPick(course, chapters, null, Math.random, under);
       if (!pick) return null;
-      return { ...base, key: runSeq++, mode, line: pick.line, startPly: fromStart ? 0 : pick.startPly };
+      return { ...base, under, key: runSeq++, mode, line: pick.line, startPly: fromStart ? 0 : pick.startPly };
     }
     const progress = courseProgress(course.id);
     const line = byId(params.get("line")) ?? nextLearnLine(course, tier, (id) => !!progress.lines[id]?.learnedAt) ?? course.lines[0];
-    if (mode === "recall") return { ...base, key: runSeq++, mode, line: line.idx, startPly: Number(params.get("from") ?? 0) || 0 };
+    if (mode === "recall") {
+      const from = Number(params.get("from") ?? 0) || 0;
+      return { ...base, key: runSeq++, mode, line: line.idx, startPly: Math.max(0, Math.min(from, line.sans.length - 1)) };
+    }
     // arriving from "Make it my move" at another system's choice
     const at = Number(params.get("at"));
     const play = params.get("play");
@@ -81,7 +95,10 @@ function CourseTrainer({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; s
         notice: { title: "Switched course", text: `${system.name} is the course that plays ${moveLabel(at, play)}.` },
       };
     }
-    return { ...base, key: runSeq++, mode: "learn", line: line.idx, startPly: learnStart(ds, course, line.idx, getPrefs().skipKnown) };
+    // `start=<ply>`: open Learn at a position (course tree, Course Explorer)
+    const startAt = Number(params.get("start"));
+    const startPly = params.get("start") !== null && Number.isInteger(startAt) && startAt >= 0 && startAt < line.sans.length ? startAt : learnStart(ds, course, line.idx, getPrefs().skipKnown);
+    return { ...base, key: runSeq++, mode: "learn", line: line.idx, startPly };
     // the first run is fixed at mount; later runs come from the view's actions
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ds, system]);
@@ -97,6 +114,7 @@ function CourseTrainer({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; s
       if (next.tier !== "essentials") q.set("tier", next.tier);
       if (next.mode === "drill" && next.chapters) q.set("ch", next.chapters.join(","));
       if (next.mode === "drill" && next.fromStart) q.set("full", "1");
+      if (next.mode === "drill" && next.under != null) q.set("under", next.ds.raw!.nodes[next.under][0]);
       window.history.replaceState(null, "", `/train/${next.hub.slug}/${next.system.slug}/${next.system.side}?${q}`);
     },
     []

@@ -60,9 +60,8 @@ async function learnUntil(page: Page, until: number) {
 
 test("Phase 3 screenshots", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  // the v1 catalog stays until Phase 4 replaces it with /openings
-  await page.goto("/learn");
-  await page.waitForTimeout(3000);
+  await page.goto("/openings");
+  await page.getByTestId("hub-card").first().waitFor();
   await shoot(page, "catalog");
 
   await page.goto("/openings/ruy-lopez?stay=1");

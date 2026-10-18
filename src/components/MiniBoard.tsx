@@ -5,7 +5,7 @@
  * `approach`, hovering/focusing replays the moves and rests on the final
  * position (desktop, no reduced motion).
  */
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
 
 import "chessground/assets/chessground.brown.css";
@@ -43,35 +43,41 @@ export interface MiniBoardProps {
 const STEP_MS = 260;
 
 export default function MiniBoard({ fen, orientation = "white", approach, className = "", label }: MiniBoardProps) {
-  const frames = useMemo(() => {
-    if (!approach?.length) return null;
-    const c = new Chess();
-    const list = [c.fen()];
-    for (const san of approach) {
-      try {
-        c.move(san);
-      } catch {
-        break;
-      }
-      list.push(c.fen());
-    }
-    return list;
-  }, [approach]);
+  // replay frames are computed on the first hover, not for every card on mount
+  const [frames, setFrames] = useState<{ key: string; list: string[] } | null>(null);
   const [frame, setFrame] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const playRef = useRef<() => void>(() => {});
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
   }, []);
 
   const play = () => {
-    if (!frames || timer.current) return;
+    if (!approach?.length || timer.current) return;
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     if (typeof window !== "undefined" && !window.matchMedia("(hover: hover)").matches) return;
+    const key = approach.join(" ");
+    let list = frames?.key === key ? frames.list : null;
+    if (!list) {
+      const c = new Chess();
+      list = [c.fen()];
+      for (const san of approach) {
+        try {
+          c.move(san);
+        } catch {
+          break;
+        }
+        list.push(c.fen());
+      }
+      setFrames({ key, list });
+    }
+    const total = list.length;
     let i = 0;
     setFrame(0);
     timer.current = setInterval(() => {
       i++;
-      if (i >= frames.length) {
+      if (i >= total) {
         if (timer.current) clearInterval(timer.current);
         timer.current = null;
         setFrame(null);
@@ -80,12 +86,28 @@ export default function MiniBoard({ fen, orientation = "white", approach, classN
       setFrame(i);
     }, STEP_MS);
   };
+  useEffect(() => {
+    playRef.current = play;
+  });
+  // the card's link (not this div) takes focus: replay on its focus and hover too
+  useEffect(() => {
+    const host = boardRef.current?.closest("a, button");
+    if (!host) return;
+    const go = () => playRef.current();
+    host.addEventListener("focus", go);
+    host.addEventListener("mouseenter", go);
+    return () => {
+      host.removeEventListener("focus", go);
+      host.removeEventListener("mouseenter", go);
+    };
+  }, []);
 
-  const shown = frame !== null && frames ? frames[frame] : fen;
+  const shown = frame !== null && frames ? frames.list[frame] ?? fen : fen;
   const pieces = piecesOf(shown);
   const flip = orientation === "black";
   return (
     <div
+      ref={boardRef}
       className={`mini-board ${className}`}
       onMouseEnter={play}
       onFocus={play}

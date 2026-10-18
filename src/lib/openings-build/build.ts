@@ -244,8 +244,17 @@ export function legacyMapFor(
   current: BaselineRow[],
   catalogResult: CatalogResult | null
 ): LegacyMap {
+  // the row's own position first; a position that is only a folded note falls
+  // back to the deepest earlier position that is on a course line
   const resolver = catalogResult
-    ? (r: { finalEpd: string }) => resolveLegacy(catalogResult.model, catalogResult, r.finalEpd)
+    ? (r: { finalEpd: string; epds?: string[] }) => {
+        const tries = r.epds?.length ? [...r.epds].reverse() : [r.finalEpd];
+        for (const epd of tries) {
+          const hit = resolveLegacy(catalogResult.model, catalogResult, epd);
+          if (hit.courseId) return hit;
+        }
+        return { courseId: null, lineId: null };
+      }
     : undefined;
   return buildLegacyMap(v1, new Set(current.map((r) => r.rowId)), resolver);
 }

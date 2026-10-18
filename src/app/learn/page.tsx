@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
-import LearnCatalog from "@/components/learn/LearnCatalog";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Learn",
-  description: "Guided walkthroughs of every chess opening — mainlines, sidelines, and the ideas behind each move.",
-};
-
+/** /learn was the v1 catalog; the catalog is /openings now. */
 export default function LearnPage() {
-  return <LearnCatalog />;
+  redirect("/openings");
 }

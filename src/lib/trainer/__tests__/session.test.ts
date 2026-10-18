@@ -12,6 +12,7 @@ import { decodeAnnotations } from "@/lib/openings-build/annotations";
 import type { RawDatasetV2 } from "@/lib/openings-build/dataset";
 import { Chess } from "chess.js";
 import { chapterTrunk, learnStartPly, TrainerSession, type Mode, type SessionCtx } from "../session";
+import { drillPick, sameLine } from "../plan";
 
 const raw = JSON.parse(readFileSync(join(__dirname, "../../../../public/data/openings.v2.json"), "utf8")) as RawDatasetV2;
 const model = modelFromRaw(raw);
@@ -311,6 +312,30 @@ describe("arrows", () => {
 });
 
 describe("Drill", () => {
+  it("under a position: only lines continuing past it, started there; a leaf has no subtree", () => {
+    const line = ruy.lines[0];
+    const under = line.nodes[6];
+    for (let k = 0; k < 20; k++) {
+      const pick = drillPick(ruy, null, null, Math.random, under)!;
+      expect(ruy.lines[pick.line].nodes[pick.startPly]).toBe(under);
+      expect(pick.startPly).toBeLessThan(ruy.lines[pick.line].sans.length);
+    }
+    const leaf = line.nodes[line.nodes.length - 1];
+    const alsoInner = ruy.lines.some((l) => l.nodes.indexOf(leaf) >= 0 && l.nodes.indexOf(leaf) < l.sans.length);
+    if (!alsoInner) expect(drillPick(ruy, null, null, Math.random, leaf)).toBeNull();
+  });
+  it("an index from the override-free course maps to the same line in the learner's course", () => {
+    const [node, alts] = [...ruy.alternatives].find(([n, a]) => a.length && !ruy.systemNodes.has(n))!;
+    const sum = cat.hubs.find((h) => h.slug === "ruy-lopez")!;
+    const s = sum.systems.white.map((i) => cat.systems[i]).find((x) => x.slug === "closed")!;
+    const hub = hubFromSeed(model, { slug: sum.slug, title: sum.title, kind: sum.kind, parent: sum.parent, def: { slug: sum.slug, title: sum.title, match: [], ...(sum.defSide ? { side: sum.defSide } : {}), ...(sum.signature ? { signature: sum.signature } : {}) }, rows: sum.rowIdx, primaryName: sum.primaryName }, sum.siblings);
+    const withOverride = deriveCourse(model, hub, { hub: "ruy-lopez", side: "white", slug: s.slug, name: s.name, choices: s.choices, defining: s.defining, signatureNode: s.signatureNode, parent: null }, { overrides: new Map([[node, alts[0]]]) });
+    const untouched = ruy.lines.find((l) => !l.nodes.includes(node))!;
+    expect(sameLine(withOverride, untouched)!.sans).toEqual(untouched.sans);
+    const changed = ruy.lines.find((l) => l.nodes.includes(node))!;
+    const p = changed.nodes.indexOf(node);
+    expect(sameLine(withOverride, changed)!.sans.slice(0, p)).toEqual(changed.sans.slice(0, p));
+  });
   it("starts where the line leaves its chapter trunk, and never grades", () => {
     const line = ruy.lines.find((l) => ruy.chapters[l.chapter].lines.length > 2)!;
     const start = chapterTrunk(ruy, line);
