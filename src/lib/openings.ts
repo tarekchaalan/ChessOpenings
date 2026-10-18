@@ -57,6 +57,8 @@ export interface Opening {
 
 export interface Dataset {
   version: string;
+  /** v2: the raw build output (course derivation runs on it, ADR 0002) */
+  raw?: RawDatasetV2;
   /** v2 build output hash (cache key + live-reload identity) */
   outputHash?: string;
   openings: Opening[];
@@ -129,7 +131,7 @@ export function parseDatasetV2(raw: RawDatasetV2, outputHash: string): Dataset {
   });
   const byEpd = new Map<string, number>();
   nodes.forEach((n, i) => byEpd.set(n.epd, i));
-  return { version: raw.lib, outputHash, openings, nodes, byEpd };
+  return { version: raw.lib, outputHash, openings, nodes, byEpd, raw };
 }
 
 export function parseDataset(raw: RawDataset): Dataset {

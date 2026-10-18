@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* opening data is not markup: scanning it made every TSV edit recompile this file in dev */
+@source not "../../public/data";
+@source not "../../data";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -137,3 +141,55 @@ coords {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Static mini board (MiniBoard) ─────────────────────────────────────── */
+.mini-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+.mini-board cg-board {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mini-board .mp {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12.5%;
+  height: 12.5%;
+  background-size: cover;
+  z-index: 2;
+  pointer-events: none;
+  transition: transform 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-board .mp {
+    transition: none;
+  }
+}
+
+/* ── Board vocabulary: tints, dashed extension arrows, badges, promotion ── */
+cg-board square.sq-threat { background: rgb(179 38 30 / 0.35); }
+cg-board square.sq-wrong { background: rgb(179 38 30 / 0.28); }
+cg-board square.sq-hint { box-shadow: inset 0 0 0 4px rgb(21 120 27 / 0.85); background: rgb(21 120 27 / 0.18); }
+cg-board square.sq-authored-green { background: rgb(21 120 27 / 0.35); }
+cg-board square.sq-authored-red { background: rgb(136 32 32 / 0.35); }
+cg-board square.sq-authored-yellow { background: rgb(230 143 0 / 0.38); }
+cg-board square.sq-authored-blue { background: rgb(0 48 136 / 0.32); }
+/* extension arrows are dashed: chessground has no dash option, so target the unique stroke */
+.cg-wrap svg line[stroke="#157a1c"] { stroke-dasharray: 3 2.2; }
+.cg-badge-ok { animation: badge-fade 600ms ease-out forwards; }
+@keyframes badge-fade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cg-badge-ok { animation: none; } }
+.board-shell { position: relative; }
+.promo-overlay { position: absolute; inset: 0; z-index: 20; background: rgb(0 0 0 / 0.35); }
+.promo-column { position: absolute; width: 12.5%; display: flex; }
+.promo-piece { position: relative; width: 100%; aspect-ratio: 1 / 1; background: var(--surface); border: 1px solid var(--border); }
+.promo-piece:hover, .promo-piece:focus-visible { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.promo-piece .mp { position: absolute; inset: 6%; width: 88%; height: 88%; background-size: cover; }

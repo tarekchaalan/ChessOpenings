@@ -3,6 +3,8 @@
  * like v1). Encoded by the build, decoded by src/lib/openings.ts.
  */
 import type { Graph } from "./graph";
+import type { RawCatalog } from "./catalog";
+import type { RawAnnotations } from "./annotations";
 import { MOVE_EXT, MOVE_THEORY, type PositionStats } from "./types";
 
 export const DATASET_FORMAT = "chess-openings-trainer/graph@2";
@@ -22,10 +24,10 @@ export interface RawDatasetV2 {
   maxPly: number;
   rows: RawRow[];
   nodes: RawNode[];
-  /** filled from Phase 2 on (hubs, systems, course summaries, indexes) */
-  catalog?: unknown;
-  /** filled from Phase 3 on (authored coach content) */
-  annotations?: unknown;
+  /** hubs, systems, course summaries and the position index (Phase 2) */
+  catalog?: RawCatalog;
+  /** authored coach content (§4.2) */
+  annotations?: RawAnnotations;
 }
 
 /** Off-book (stats-only) moves listed per position, like v1's "extras". */
@@ -70,7 +72,12 @@ export function encodeNodes(
     }
     for (const e of extEdges.get(epd) ?? []) {
       const norm = e.san.replace(/[+#]$/, "");
-      if (used.has(norm)) continue;
+      if (used.has(norm)) {
+        // an extension move that is also named theory carries both flags
+        const t = moves.find((m) => m[0].replace(/[+#]$/, "") === norm);
+        if (t) t[6] |= MOVE_EXT;
+        continue;
+      }
       const s = statMoves.get(norm);
       moves.push([e.san, epdIndex.get(e.toEpd)!, s?.[1] ?? 0, s?.[2] ?? 0, s?.[3] ?? 0, s?.[4] ?? 0, MOVE_EXT]);
       used.add(norm);

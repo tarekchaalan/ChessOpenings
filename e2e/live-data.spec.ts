@@ -8,7 +8,9 @@ import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA, ROOT, TSV_DIR } from "./fixtures";
 
-const LIVE_MS = 3000;
+// the acceptance budget is 3 s; E2E_LIVE_MS only loosens it to check behaviour on a slow machine
+const envMs = Number(process.env.E2E_LIVE_MS);
+const LIVE_MS = Number.isFinite(envMs) && envMs > 0 ? envMs : 3000;
 const E_TSV = join(TSV_DIR, "e.tsv");
 const NEW_PGN = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Kh8";
 const LINE = "e4,e5,Nf3,Nc6,Bb5,a6,Ba4,Nf6,O-O,Be7,Re1,b5,Bb3,d6,c3,O-O,h3,Kh8";

@@ -4,11 +4,11 @@
  */
 import { computeInputHash } from "../../src/lib/openings-build/build";
 import { formatIssue } from "../../src/lib/openings-build/build";
-import { loadStats, nodeSha256, readInputs, readMeta, runBuild } from "./artifacts";
+import { codeHash, loadStats, nodeSha256, readInputs, readMeta, runBuild } from "./artifacts";
 
 const meta = readMeta();
 const inputs = readInputs();
-const hash = computeInputHash([...inputs.tsvFiles, ...(inputs.annotationFiles ?? [])], loadStats()?.sha ?? null, nodeSha256);
+const hash = computeInputHash([...inputs.tsvFiles, ...(inputs.annotationFiles ?? [])], loadStats()?.sha ?? null, nodeSha256, codeHash());
 let failed = false;
 if (!meta) {
   console.error("openings:check — no openings.v2.meta.json; run npm run openings:build");

@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { OUT, readMeta, runBuild, writeArtifacts, printReport } from "./artifacts";
 import { computeInputHash } from "../../src/lib/openings-build/build";
-import { loadStats, nodeSha256, readInputs } from "./artifacts";
+import { codeHash, loadStats, nodeSha256, readInputs } from "./artifacts";
 
 const allowErrors = process.argv.includes("--allow-errors");
 const force = process.argv.includes("--force");
@@ -15,7 +15,7 @@ const t0 = Date.now();
 const meta = readMeta();
 if (!force && meta && existsSync(OUT.dataset)) {
   const inputs = readInputs();
-  const hash = computeInputHash([...inputs.tsvFiles, ...(inputs.annotationFiles ?? [])], loadStats()?.sha ?? null, nodeSha256);
+  const hash = computeInputHash([...inputs.tsvFiles, ...(inputs.annotationFiles ?? [])], loadStats()?.sha ?? null, nodeSha256, codeHash());
   if (hash === meta.inputHash) {
     const errors = meta.counts.errors;
     console.log(`openings:build — up to date (${hash.slice(0, 12)}), ${errors} error(s), ${Date.now() - t0} ms`);
@@ -25,7 +25,7 @@ if (!force && meta && existsSync(OUT.dataset)) {
 }
 const out = runBuild();
 const meta2 = writeArtifacts(out);
-printReport(out, "openings:build", Date.now() - t0);
+printReport(out, "openings:build", Date.now() - t0, true);
 console.log(
   `  openings.v2.json ${(meta2.bytes / 1e6).toFixed(2)} MB (${(meta2.gzipBytes / 1e3).toFixed(0)} KB gzip) · output ${meta2.outputHash.slice(0, 12)}` +
     (out.changelogEntry

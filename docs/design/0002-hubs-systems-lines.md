@@ -115,7 +115,8 @@ Identical tiers collapse in the UI. Coverage % = the tier's reach mass.
 | `SYSTEM_MIN_SHARE` | 0.10 | system search |
 | `SYSTEM_NAME_SHARE` | 0.80 | system naming |
 | `SYSTEM_MAX_SHOWN` | 8 | hub page |
-| `VARIANT_MAX_PER_SYSTEM` | 12 | coverage remedy |
+| `VARIANT_MAX_PER_SYSTEM` / `VARIANT_MAX_TOTAL` | 30 / 400 | coverage remedy |
+| `RECOMMENDED_MIN_LINES` | 3 | recommended system |
 | `SIBLING_MIN_ROWS` | 3 | sibling hubs |
 | `CHAPTER_MIN_LINES` | 3 | chapters |
 | `CHAPTER_MIN_REACH` | 0.05 | chapters |
@@ -150,3 +151,64 @@ Identical tiers collapse in the UI. Coverage % = the tier's reach mass.
 - The catalog stops at hubs, so 1–2-ply families never head it.
 - Variant systems add courses, but share cards with their parents, so they cost no extra reviews for shared positions.
 - Open risk: very large hubs (Sicilian ≈ 400 rows) may produce many variants. Phase 2 reports the counts and adjusts the tunables.
+
+---
+
+## Phase 2 amendments (implemented 2026-10-18)
+
+These are decisions made while implementing, with the reason for each. Deviations from the spec are marked **DEVIATION**.
+
+1. **Reach counts from σ (spec §4.6).** Amends the approach-node rule above.
+   - Approach nodes are neutral, so σ-lines sum to 1.
+   - **Early-deviation lines** get *local* reach: the deviating move's share at the divergence node, times the factors after it. They sort after every σ-line and appear only in the Complete tier.
+   - Why: with root-based reach, QGD-named rows starting 1.c4 took 19% of the Essentials mass.
+2. **Tiers are chosen on trainable mass** (kept σ-lines). Coverage is still reported against *all* master games after σ, folded lines included.
+   - Why: in data-sparse hubs (King's Gambit), many rare unanswered replies get folded. Counting them in the selection target pushed every tier to its cap. The honest coverage number stays: King's Gambit Essentials covers 39%.
+3. **Systems.**
+   - Named after the position their defining moves reach ("Najdorf Variation"). Falls back to the ≥ 80% common name, then the defining moves.
+   - Ordered by the games of each defining choice, compared in order (lexicographically). "Recommended" = the first root whose course has ≥ `RECOMMENDED_MIN_LINES` (3) σ-lines, else the root with the most σ-lines.
+   - Why: the earlier signature-games ordering favoured shallow systems (it recommended 2…Nc6 over the Najdorf). The line minimum stops a stub from leading. Example: KID as White, 5.Be2 (220 games) beats 5.Nf3 (178) by move games, but its main line transposes into 5.Nf3 and leaves a 1-line course. On the shipped data, 8 curated hub/side pairs changed recommendation (KID, Grünfeld and Pirc as White; Philidor, Scandinavian, Trompowsky, Old Indian and Réti as Black).
+   - Learner choices are taken within 4 learner moves of σ and qualify with ≥ `SYSTEM_MIN_ROWS` (3) rows or ≥ 10% of hub rows. A system stops at a path whose name leaves the hub.
+4. **Chapter and section names.**
+   - A chapter is named after the position its key move reaches, whenever that name says more than its parent (the hub for chapters, the chapter for sections). Otherwise the ≥ 60% shared name is used, then "Main line (key)" or "key line".
+   - Line names drop the most specific context that prefixes them (section › chapter › system).
+   - Names that repeat the hub title as a later segment ("Queen's Pawn Game, London System") are cut after it.
+5. **Variant systems — DEVIATION (spec has none; proposed in Phase 0).**
+   - Greedy set cover in batched rounds: each round takes every best non-overlapping candidate. Candidates start at the row's attachment point.
+   - A detour that rejoins the course later (an EPD transposition) is skipped: the candidate is taken where the row finally leaves the course. If that finds none, the first deviation is used.
+   - A variant is kept only if it gets further along at least one target row than its parent, and its line set (folded lines included) duplicates no other course.
+   - Caps: `VARIANT_MAX_PER_SYSTEM` 30 per root system, `VARIANT_MAX_TOTAL` 400.
+   - Result: 262 variants across 971 systems. Without them, 485 rows were unassigned.
+6. **Folded lines count as reachable notes.** A course whose lines all have < 2 learner moves after σ keeps all of them unfolded.
+   - Result: 3,508 rows on course lines and 357 reachable only as folded notes. **0 unassigned.**
+7. **Auto hubs group by the first name segment** ("London System, with Be2" → "London System"), not by the text before the colon. Many lichess families are no-colon names with commas.
+8. **London signature** = `1.d4 d5 2.Nf3 Nf6 3.Bf4`, the classic set-up.
+   - The first attempt, `1.d4 d5 2.Bf4`, only covers the tiny Accelerated-London subtree in lichess naming.
+   - The `2.Bf4` rows form the linked sibling hub; the `1…Nf6` rows are early deviations.
+9. **Shipping.** The catalog ships hub, system and course summaries, plus each hub's *seed* (row indices and primary name).
+   - The client rebuilds only the hub it needs, then derives the course. The same lines are guaranteed by a unit test over 37 sampled courses and 10 variants.
+10. **Dev watcher memo.** Courses are memoised by a content signature of their hub, in EPD terms, and remapped by EPD when node indices shift.
+    - A unit test asserts memo builds are byte-identical to fresh builds, including an `a.tsv` insertion.
+11. **Small sibling groups** (< `SIBLING_MIN_ROWS` rows) become Offbeat hubs. They are listed on the parent hub as `minorSiblings` and linked under "Related openings".
+    - Per-hub coverage counts the hub's own courses plus all its siblings, recursively, minor ones included.
+    - Why: Queen's Indian "with e3" rows live two levels down (QID › with e3 › 5…Bd6). Users reach them from the QID page.
+12. **Curated additions:** `neo-grunfeld-defense`, `pterodactyl-defense` and `old-indian-defense`, each with an explicit signature (spec §4.4's expected odd cases). Every curated hub is now ≥ 95% covered. The build prints **0 warnings**.
+13. **Input hash includes the build code** (`codeHash`: `src/lib/openings-build/*.ts` + `src/content/hubs.ts`). A logic change can't be skipped by the up-to-date shortcut.
+14. **Annotations** (`public/data/annotations/*.pgn`) are parsed into the dataset (`annotations`, keyed `EPD|SAN`). The v1 notes were migrated to `curated.pgn` (74 notes). One v1 key was illegal (`e4 e6 d5`) and was corrected to `e4 e6 d4`.
+15. **Dev watcher V8 flags:** `--no-flush-bytecode --no-memory-reducer`.
+    - While idle, V8 dropped the warm build code and shrank the ~340 MB heap (≈ 3 s of idle GC CPU). The first edit after a pause then took 2.4–6.6 s instead of ~1 s.
+    - Tailwind's automatic source detection no longer scans `public/data` and `data/` (`@source not`). Before, every artifact write recompiled `globals.css` in dev.
+
+### Measured (2026-10-18, this VM)
+
+| | |
+|---|---|
+| Hubs | 197: 43 curated, 89 auto, 65 sibling. 48 top-level, 149 offbeat |
+| Systems | 971 (262 variants) |
+| Lines | 9,689 |
+| Extension plies | 13,280 |
+| Dataset | 2.27 MB raw / 401 KB gzip (budget 700 KB) |
+| Cold `openings:build` | 3.5–9.8 s (identical input; see the VM note) |
+| Watcher incremental | 0.6–2.0 s typical. A Ruy Lopez edit reuses 949 of 983 course derivations: the 971 kept courses plus rejected variant trials |
+
+**VM note.** Late in Phase 2 this VM began faulting fresh memory at ~25 µs/page: 1 GB took 26.7 s, against ≈ 0.2 s normally. All timings above swing 2–3× run to run. Earlier in the phase, the same live E2E passed at 1.7–2.0 s (course) and 2.2–2.6 s (hub badge).

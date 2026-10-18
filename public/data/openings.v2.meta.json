@@ -1,10 +1,10 @@
 {
   "format": "chess-openings-trainer/meta@2",
-  "lib": "2.0.0-phase1",
-  "inputHash": "77620deed8295e08366b84602c863360f2b26e894382e3b728c38c22e89e85ec",
-  "outputHash": "90aad103cdde8bf449adafad369f70a0ef396cc17298bd9ad5d6a7242f219a89",
-  "bytes": 1358309,
-  "gzipBytes": 250677,
+  "lib": "2.0.0-phase2",
+  "inputHash": "fdb8966b29ac1aca3b2a0118836e380f25d97af717b0d21bc477cd4b8e3da803",
+  "outputHash": "839f4c6ed96ab8bee1e70dba1d72bb0f03181d728ca4f73c84b4508e8d5ff2b4",
+  "bytes": 2270937,
+  "gzipBytes": 400849,
   "statsSha": "0d4cc77060341885f464d79c1879a01c901f2f93f6cf7a9cff54f1007eeb8284",
   "counts": {
     "files": 5,
@@ -18,12 +18,1014 @@
   },
   "issues": [],
   "unassigned": [],
+  "coverage": {
+    "rows": 3865,
+    "covered": 3508,
+    "asNotes": 357,
+    "variants": 262,
+    "extPlies": 13280,
+    "lines": 9689,
+    "hubs": 197,
+    "courses": 971
+  },
+  "hubCoverage": [
+    {
+      "slug": "italian-game",
+      "rows": 187,
+      "covered": 187
+    },
+    {
+      "slug": "ruy-lopez",
+      "rows": 235,
+      "covered": 235
+    },
+    {
+      "slug": "scotch-game",
+      "rows": 53,
+      "covered": 53
+    },
+    {
+      "slug": "vienna-game",
+      "rows": 56,
+      "covered": 56
+    },
+    {
+      "slug": "kings-gambit",
+      "rows": 191,
+      "covered": 191
+    },
+    {
+      "slug": "petrovs-defense",
+      "rows": 50,
+      "covered": 50
+    },
+    {
+      "slug": "philidor-defense",
+      "rows": 44,
+      "covered": 44
+    },
+    {
+      "slug": "four-knights-game",
+      "rows": 49,
+      "covered": 48
+    },
+    {
+      "slug": "bishops-opening",
+      "rows": 41,
+      "covered": 41
+    },
+    {
+      "slug": "danish-gambit",
+      "rows": 8,
+      "covered": 8
+    },
+    {
+      "slug": "sicilian-defense",
+      "rows": 400,
+      "covered": 400
+    },
+    {
+      "slug": "french-defense",
+      "rows": 212,
+      "covered": 212
+    },
+    {
+      "slug": "caro-kann-defense",
+      "rows": 110,
+      "covered": 110
+    },
+    {
+      "slug": "scandinavian-defense",
+      "rows": 45,
+      "covered": 45
+    },
+    {
+      "slug": "pirc-defense",
+      "rows": 28,
+      "covered": 28
+    },
+    {
+      "slug": "modern-defense",
+      "rows": 39,
+      "covered": 39
+    },
+    {
+      "slug": "alekhine-defense",
+      "rows": 56,
+      "covered": 56
+    },
+    {
+      "slug": "queens-gambit-declined",
+      "rows": 211,
+      "covered": 211
+    },
+    {
+      "slug": "queens-gambit-accepted",
+      "rows": 63,
+      "covered": 63
+    },
+    {
+      "slug": "slav-defense",
+      "rows": 52,
+      "covered": 52
+    },
+    {
+      "slug": "semi-slav-defense",
+      "rows": 73,
+      "covered": 73
+    },
+    {
+      "slug": "tarrasch-defense",
+      "rows": 27,
+      "covered": 27
+    },
+    {
+      "slug": "catalan-opening",
+      "rows": 32,
+      "covered": 32
+    },
+    {
+      "slug": "london-system",
+      "rows": 22,
+      "covered": 22
+    },
+    {
+      "slug": "colle-system",
+      "rows": 15,
+      "covered": 15
+    },
+    {
+      "slug": "torre-attack",
+      "rows": 22,
+      "covered": 22
+    },
+    {
+      "slug": "trompowsky-attack",
+      "rows": 10,
+      "covered": 10
+    },
+    {
+      "slug": "rapport-jobava-system",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "nimzo-indian-defense",
+      "rows": 104,
+      "covered": 104
+    },
+    {
+      "slug": "queens-indian-defense",
+      "rows": 74,
+      "covered": 74
+    },
+    {
+      "slug": "bogo-indian-defense",
+      "rows": 21,
+      "covered": 21
+    },
+    {
+      "slug": "kings-indian-defense",
+      "rows": 119,
+      "covered": 119
+    },
+    {
+      "slug": "grunfeld-defense",
+      "rows": 59,
+      "covered": 59
+    },
+    {
+      "slug": "benoni-defense",
+      "rows": 66,
+      "covered": 66
+    },
+    {
+      "slug": "benko-gambit",
+      "rows": 24,
+      "covered": 24
+    },
+    {
+      "slug": "dutch-defense",
+      "rows": 69,
+      "covered": 69
+    },
+    {
+      "slug": "neo-grunfeld-defense",
+      "rows": 25,
+      "covered": 25
+    },
+    {
+      "slug": "pterodactyl-defense",
+      "rows": 33,
+      "covered": 33
+    },
+    {
+      "slug": "old-indian-defense",
+      "rows": 14,
+      "covered": 14
+    },
+    {
+      "slug": "english-opening",
+      "rows": 176,
+      "covered": 176
+    },
+    {
+      "slug": "reti-opening",
+      "rows": 43,
+      "covered": 43
+    },
+    {
+      "slug": "kings-indian-attack",
+      "rows": 27,
+      "covered": 27
+    },
+    {
+      "slug": "bird-opening",
+      "rows": 28,
+      "covered": 28
+    },
+    {
+      "slug": "amar-opening",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "amazon-attack",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "amsterdam-attack",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "anderssens-opening",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "australian-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "barnes-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "barnes-opening",
+      "rows": 6,
+      "covered": 6
+    },
+    {
+      "slug": "basque-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit",
+      "rows": 18,
+      "covered": 18
+    },
+    {
+      "slug": "blackmar-diemer-gambit-accepted",
+      "rows": 22,
+      "covered": 22
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined",
+      "rows": 9,
+      "covered": 9
+    },
+    {
+      "slug": "blumenfeld-countergambit",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "blumenfeld-countergambit-accepted",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "bongcloud-attack",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "borg-defense",
+      "rows": 5,
+      "covered": 5
+    },
+    {
+      "slug": "canard-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "carr-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "center-game",
+      "rows": 18,
+      "covered": 18
+    },
+    {
+      "slug": "center-game-accepted",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "clemenz-opening",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "creepy-crawly-formation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "czech-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "dresden-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "duras-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "dory-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "east-indian-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "elephant-gambit",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "english-defense",
+      "rows": 7,
+      "covered": 7
+    },
+    {
+      "slug": "english-orangutan",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "englund-gambit",
+      "rows": 9,
+      "covered": 9
+    },
+    {
+      "slug": "englund-gambit-declined",
+      "rows": 7,
+      "covered": 7
+    },
+    {
+      "slug": "formation",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "fried-fox-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "global-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "goldsmith-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "grob-opening",
+      "rows": 20,
+      "covered": 20
+    },
+    {
+      "slug": "gunderam-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "hippopotamus-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "horwitz-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "hungarian-opening",
+      "rows": 20,
+      "covered": 20
+    },
+    {
+      "slug": "indian-defense",
+      "rows": 50,
+      "covered": 50
+    },
+    {
+      "slug": "irish-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kangaroo-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "kings-knight-opening",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "kings-pawn-game",
+      "rows": 38,
+      "covered": 38
+    },
+    {
+      "slug": "kings-pawn-opening",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "kadas-opening",
+      "rows": 9,
+      "covered": 9
+    },
+    {
+      "slug": "lasker-simul-special",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "latvian-gambit",
+      "rows": 17,
+      "covered": 17
+    },
+    {
+      "slug": "latvian-gambit-accepted",
+      "rows": 9,
+      "covered": 9
+    },
+    {
+      "slug": "lemming-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "lion-defense",
+      "rows": 6,
+      "covered": 6
+    },
+    {
+      "slug": "marienbad-system",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "mexican-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "mieses-opening",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "mikenas-defense",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "montevideo-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "nimzo-larsen-attack",
+      "rows": 18,
+      "covered": 18
+    },
+    {
+      "slug": "nimzowitsch-defense",
+      "rows": 43,
+      "covered": 43
+    },
+    {
+      "slug": "owen-defense",
+      "rows": 8,
+      "covered": 8
+    },
+    {
+      "slug": "paleface-attack",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "polish-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "polish-opening",
+      "rows": 27,
+      "covered": 27
+    },
+    {
+      "slug": "ponziani-opening",
+      "rows": 16,
+      "covered": 16
+    },
+    {
+      "slug": "portuguese-opening",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "pseudo-queens-indian-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "queens-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-pawn",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-pawn-game",
+      "rows": 43,
+      "covered": 43
+    },
+    {
+      "slug": "rat-defense",
+      "rows": 11,
+      "covered": 11
+    },
+    {
+      "slug": "richter-veresov-attack",
+      "rows": 8,
+      "covered": 8
+    },
+    {
+      "slug": "robatsch-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "rubinstein-opening",
+      "rows": 6,
+      "covered": 6
+    },
+    {
+      "slug": "saragossa-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "slav-indian",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "sodium-attack",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "st-george-defense",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "three-knights-opening",
+      "rows": 6,
+      "covered": 6
+    },
+    {
+      "slug": "valencia-opening",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "van-geet-opening",
+      "rows": 33,
+      "covered": 33
+    },
+    {
+      "slug": "vant-kruijs-opening",
+      "rows": 5,
+      "covered": 5
+    },
+    {
+      "slug": "vulture-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "wade-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "ware-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "ware-opening",
+      "rows": 7,
+      "covered": 7
+    },
+    {
+      "slug": "yusupov-rubinstein-system",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "zaire-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "zukertort-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "zukertort-opening",
+      "rows": 47,
+      "covered": 47
+    },
+    {
+      "slug": "scotch-game-benima-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kings-gambit-declined-classical-svenonius-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "bishops-opening-boden-kieseritzky-gambit",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "queens-gambit-declined-pillsbury-attack",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-gambit-declined-alapin-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-gambit-declined-baltic-defense",
+      "rows": 5,
+      "covered": 5
+    },
+    {
+      "slug": "queens-gambit-declined-chigorin-defense",
+      "rows": 11,
+      "covered": 11
+    },
+    {
+      "slug": "queens-gambit-declined-marshall-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "queens-gambit-declined-zilbermints-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-gambit-declined-2-c5",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "queens-gambit-declined-albin-countergambit",
+      "rows": 13,
+      "covered": 13
+    },
+    {
+      "slug": "queens-gambit-accepted-2-e6",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "semi-slav-defense-2-e6",
+      "rows": 13,
+      "covered": 13
+    },
+    {
+      "slug": "catalan-opening-open-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-pawn-game-accelerated-london-system",
+      "rows": 5,
+      "covered": 5
+    },
+    {
+      "slug": "colle-system-rhamphorhynchus-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-indian-accelerated",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "queens-indian-defense-3-bb4",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "queens-indian-defense-with-e3",
+      "rows": 6,
+      "covered": 6
+    },
+    {
+      "slug": "bogo-indian-defense-monticelli-trap",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "bogo-indian-defense-retreat-variation",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "grunfeld-defense-1-d5",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "grunfeld-defense-three-knights-variation-burille-variation-reversed-tarrasch",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "benoni-defense-1-c5",
+      "rows": 18,
+      "covered": 18
+    },
+    {
+      "slug": "benoni-defense-franco-sicilian-hybrid",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "benoni-defense-2-e6",
+      "rows": 7,
+      "covered": 7
+    },
+    {
+      "slug": "benoni-defense-kings-pawn-line",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "pterodactyl-defense-1-c5",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "old-indian-defense-1-d6",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "english-opening-the-whale",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "reti-opening-anglo-slav-variation-capablanca-variation",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "reti-opening-anglo-slav-variation-bled-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kings-indian-attack-yugoslav-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kings-indian-attack-sicilian-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "bird-opening-dutch-variation-batavo-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-vienna-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-lamb-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-gedult-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-okelly-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-langeheinicke-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-elbert-countergambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "blackmar-diemer-gambit-declined-weinsbach-defense",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "english-defense-1-e6",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "english-orangutan-2-nf3",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "englund-gambit-declined-2-nf3",
+      "rows": 4,
+      "covered": 4
+    },
+    {
+      "slug": "englund-gambit-declined-reversed-french",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "formation-shy-attack",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kings-pawn-opening-van-hooydoon-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "kings-pawn-opening-speers",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "latvian-gambit-clam-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "latvian-gambit-accepted-3-nxe5",
+      "rows": 8,
+      "covered": 8
+    },
+    {
+      "slug": "nimzo-larsen-attack-1-nf3",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "owen-defense-unicorn-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "polish-opening-zukertort-system",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "rat-defense-accelerated-gurgenidze",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "slav-indian-kudischewitsch-gambit",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "van-geet-opening-battambang-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "van-geet-opening-1-e4",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "zukertort-defense-sicilian-knight-variation",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "zukertort-opening-santasieres-folly",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "zukertort-opening-tennison-gambit",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "queens-indian-defense-with-e3-4-be7",
+      "rows": 3,
+      "covered": 3
+    },
+    {
+      "slug": "queens-indian-defense-with-e3-5-bd6",
+      "rows": 2,
+      "covered": 2
+    },
+    {
+      "slug": "grunfeld-defense-smyslov-defense",
+      "rows": 1,
+      "covered": 1
+    },
+    {
+      "slug": "latvian-gambit-accepted-2",
+      "rows": 5,
+      "covered": 5
+    }
+  ],
   "timingsMs": {
-    "hash": 1,
-    "parse": 30,
-    "replay": 705,
-    "graph": 9,
-    "encode": 36,
-    "diff": 58
+    "hash": 4,
+    "parse": 1104,
+    "replay": 2868,
+    "graph": 136,
+    "encode": 583,
+    "hubs": 924,
+    "extension": 1833,
+    "courses": 2464,
+    "annotations": 83,
+    "serialize": 656,
+    "diff": 803
   }
 }

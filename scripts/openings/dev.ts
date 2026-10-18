@@ -11,7 +11,9 @@ const children: ChildProcess[] = [];
 
 // Start the watcher first and only start next once it is watching, so an
 // edit made right after the server is up is never missed.
-const watcher = spawn(process.execPath, ["--import", "tsx", "scripts/openings/watch.ts"], {
+// --no-flush-bytecode: while the watcher idles, V8 would drop the warm build
+// code, and the first edit after a pause rebuilt in 2.4–6.6 s instead of ~1 s.
+const watcher = spawn(process.execPath, ["--no-flush-bytecode", "--no-memory-reducer", "--import", "tsx", "scripts/openings/watch.ts"], {
   cwd: ROOT,
   stdio: ["inherit", "inherit", "inherit", "ipc"],
 });

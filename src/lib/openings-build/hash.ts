@@ -94,8 +94,16 @@ export function rowIdFor(normSans: string[]): string {
 }
 
 /** Course-line identity: course id + the named-theory SAN path (no ext plies). */
+const lineIdMemo = new Map<string, string>();
 export function lineIdFor(courseId: string, namedSans: string[]): string {
-  return "ln_" + base32(sha256(courseId + "\n" + namedSans.join(" "))).slice(0, 12);
+  const key = courseId + "\n" + namedSans.join(" ");
+  let id = lineIdMemo.get(key);
+  if (id === undefined) {
+    id = "ln_" + base32(sha256(key)).slice(0, 12);
+    if (lineIdMemo.size > 200_000) lineIdMemo.clear(); // bounded memo (dev watcher, browser)
+    lineIdMemo.set(key, id);
+  }
+  return id;
 }
 
 /** Cheap non-cryptographic 32-bit hash (FNV-1a) for memo keys and variant picks. */
