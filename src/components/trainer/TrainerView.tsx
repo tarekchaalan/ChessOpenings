@@ -22,6 +22,8 @@ import type { Dataset } from "@/lib/openings";
 import { chapterTrunk, definesName, moveLabel, nameAt, TrainerSession, type ActionKind, type FeedMsg, type Mode } from "@/lib/trainer/session";
 import { drillPick, nextLearnLine, reviewQueue, startsAtMove, type TierKey } from "@/lib/trainer/plan";
 import { sanToWords } from "@/lib/trainer/words";
+import { linesLearnedToday } from "@/lib/srs/workload";
+import { gradeOnServer, serverMode, useServerMode } from "@/lib/train-sync";
 import { allCards, allCourseProgress, courseProgress, getCard, gradeCard, introduceCard, markLine, overridesFor, setOverride, useProgressVersion } from "@/lib/progress/store";
 import { annotationsOf, courseFor, globalQueue, learnStart } from "@/lib/trainer/client";
 
@@ -123,9 +125,16 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const flush = useCallback(() => {
     for (const e of s.drainEvents()) {
       if (e.type === "introduce") introduceCard(side, e.epd, e.answer, where);
-      else gradeCard(side, e.epd, e.answer, e.grade!, where, getPrefs().targetRetention);
+      else {
+        const retention = getPrefs().targetRetention;
+        gradeCard(side, e.epd, e.answer, e.grade!, where, retention);
+        // signed in: the server re-grades the same outcome (ADR 0004); its card replaces ours
+        if (e.outcome && serverMode() === "on") {
+          void gradeOnServer({ courseId: where.courseId, lineId: where.lineId, sans: line.sans.slice(0, e.ply), expected: line.sans[e.ply], outcome: e.outcome, retention });
+        }
+      }
     }
-  }, [s, side, where]);
+  }, [s, side, where, line]);
   const after = useCallback(() => {
     flush();
     bump();
@@ -325,7 +334,8 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       if (next) {
         endActions.push({
           id: "next",
-          label: `Next line: ${next.name} — starts at move ${startsAtMove(line, next)}`,
+          // past the daily new-line cap (§4.9) it's offered, not suggested
+          label: `${linesLearnedToday(allCourseProgress()) >= getPrefs().dailyNewLines ? "Today’s new lines are done. Learn one more anyway" : "Next line"}: ${next.name} — starts at move ${startsAtMove(line, next)}`,
           go: () => start({ ...run, mode: "learn", line: next.idx, startPly: learnStart(ds, course, next.idx, getPrefs().skipKnown), pendingMove: undefined }),
         });
       }
@@ -415,9 +425,17 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const progress = s.endPly ? Math.min(1, livePly / s.endPly) : 0;
   const courseUrl = courseHref(run.hub.slug, run.system.slug, side);
 
+  const srv = useServerMode();
+  const graded = run.mode === "recall" || run.mode === "review";
   return (
     <div className={`trainer py-4 md:py-6 max-md:pb-[34vh] ${reduced ? "reduced" : ""}`} data-testid="trainer" data-mode={run.mode} data-phase={s.phase} data-ply={livePly}>
       <div className="sr-only" aria-live="polite" data-testid="announce">{announce}</div>
+      {graded && (srv === "mismatch" || srv === "unavailable") && (
+        <p role="status" data-testid="server-banner" className="mb-3 rounded-lg border border-edge bg-surface-2 px-3 py-2 text-xs text-muted">
+          {srv === "mismatch" ? "Server theory is updating" : "Server grading is unavailable"} — your progress is saved in this browser, but this session
+          won’t count toward the leaderboard.
+        </p>
+      )}
       <div className="grid gap-4 md:gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,640px)_minmax(360px,440px)] items-start">
         <div className="md:sticky md:top-4 min-w-0">
           <div className={`board-theme-${prefs.boardTheme}`} data-testid="board">

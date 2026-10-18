@@ -1,5 +1,6 @@
 /** Dashboard numbers (§3.2 E) from the v2 store: streak and the 7-day forecast. */
-import { isReviewable, type CardState } from "../srs/fsrs";
+import type { CardState } from "../srs/fsrs";
+import { simulateForecast } from "../srs/workload";
 
 const DAY = 86400_000;
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
@@ -16,19 +17,7 @@ export function streak(log: Record<string, number[]>, now = new Date()): number 
   return n;
 }
 
-/** Reviews per day for the next 7 days from the current schedule (overdue counts today). */
-export function forecast(cards: CardState[], now = new Date()): number[] {
-  const out = new Array(7).fill(0);
-  const today = new Date(dayKey(now)).getTime();
-  for (const c of cards) {
-    if (c.archived) continue;
-    if (isReviewable(c, now)) {
-      out[0]++;
-      continue;
-    }
-    const i = Math.floor((new Date(dayKey(new Date(c.due))).getTime() - today) / DAY);
-    if (i >= 0 && i < 7) out[i]++;
-  }
-  return out;
+/** Reviews per day for the next 7 days: FSRS-simulated (each review Good), with the daily cap. */
+export function forecast(cards: CardState[], now = new Date(), opts: { cap?: number; retention?: number } = {}): number[] {
+  return simulateForecast(cards, now, { days: 7, cap: opts.cap, retention: opts.retention });
 }
-

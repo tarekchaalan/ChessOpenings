@@ -71,6 +71,8 @@ export interface CardEvent {
   epd: string;
   answer: string;
   grade?: Grade;
+  /** what happened (server grading re-derives the grade from it, ADR 0004): the move that resolved the ply ("" after H3) */
+  outcome?: { san: string; hintLevel: number; wrongAttempts: number; ms: number };
 }
 
 export interface SessionCtx {
@@ -509,7 +511,7 @@ export class TrainerSession {
     if (graded) {
       if (!this.gradedDone.has(ply)) {
         const outcome: Outcome = { correct: true, hintLevel: this.hint, wrongAttempts: this.attempts, ms, reps: this.ctx.repsOf?.(epd, answer) ?? 0 };
-        this.gradeNow(ply, gradeFor(outcome));
+        this.gradeNow(ply, gradeFor(outcome), answer);
       }
     } else if (mode === "learn") {
       this.events.push({ type: "introduce", ply, epd, answer });
@@ -539,10 +541,11 @@ export class TrainerSession {
   }
 
   /** Schedule a graded ply once (Again lands immediately on a lapse or H3). */
-  private gradeNow(ply: number, grade: Grade): void {
+  private gradeNow(ply: number, grade: Grade, san: string): void {
     if (this.gradedDone.has(ply)) return;
     this.gradedDone.add(ply);
-    this.events.push({ type: "grade", ply, epd: this.epdAt(ply), answer: normSan(this.ctx.line.sans[ply]), grade });
+    const outcome = { san, hintLevel: this.hint, wrongAttempts: this.attempts, ms: this.now() - this.turnStarted };
+    this.events.push({ type: "grade", ply, epd: this.epdAt(ply), answer: normSan(this.ctx.line.sans[ply]), grade, outcome });
   }
 
   isGraded(ply: number): boolean {
@@ -640,7 +643,7 @@ export class TrainerSession {
     // re-teach goes right under the verdict, as its own message
     if (reteach) this.post({ kind: "hint", ply, title: "Re-teach", text: reteach });
     // the lapse is scheduled now: leaving or restarting can't turn it into a Good
-    if (this.isGraded(ply)) this.gradeNow(ply, "again");
+    if (this.isGraded(ply)) this.gradeNow(ply, "again", norm);
     // escalation: the 2nd wrong attempt applies H2, the 3rd H3
     if (mode !== "learn") {
       if (this.attempts >= 3) this.hint = Math.max(this.hint, 3) as 3;
@@ -688,7 +691,7 @@ export class TrainerSession {
       this.post({ kind: "hint", ply: this.ply, title: "Hint · piece", text: `Move the ${piece ? PIECE_NAME[piece.type] : "piece"} on ${mv.from}.`, tints: { [mv.from]: "hint" } });
     } else {
       this.post({ kind: "hint", ply: this.ply, title: "Hint · shown", text: `Play ${moveLabel(this.ply, san)}.`, arrows: [{ from: mv.from, to: mv.to, kind: "play" }] });
-      if (this.isGraded(this.ply)) this.gradeNow(this.ply, "again");
+      if (this.isGraded(this.ply)) this.gradeNow(this.ply, "again", "");
     }
     this.applyHintDecorations();
   }

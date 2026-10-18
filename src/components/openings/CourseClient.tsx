@@ -27,8 +27,10 @@ import {
 } from "@/lib/courses-client";
 import { useLatestChanges } from "@/lib/changelog-client";
 import { courseProgressInfo, lineProgress, reviewMinutes, type LineStatus } from "@/lib/catalog-client";
-import { reviewQueue, tierLines as tierLineList, type TierKey } from "@/lib/trainer/plan";
-import { allCards, overridesFor, setOverride, useProgressVersion } from "@/lib/progress/store";
+import { reviewQueue, tierAddsPerDay, tierLines as tierLineList, type TierKey } from "@/lib/trainer/plan";
+import { allCards, allCourseProgress, courseProgress, overridesFor, setOverride, useProgressVersion } from "@/lib/progress/store";
+import { linesLearnedToday } from "@/lib/srs/workload";
+import { usePrefs } from "@/lib/prefs";
 import { arrowShapes, type Arrow } from "@/lib/coach/brushes";
 import type { CourseLine } from "@/lib/openings-build/courses";
 import type { Dataset } from "@/lib/openings";
@@ -78,7 +80,8 @@ const ago = (iso: string | null) => {
 };
 
 function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; system: RawSystemSummary }) {
-  useProgressVersion();
+  const version = useProgressVersion();
+  const prefs = usePrefs();
   const hydrated = useHydrated();
   const courseId = `${hub.slug}/${system.slug}@${system.side}`;
   const overrides = hydrated ? overridesFor(courseId) : {};
@@ -108,6 +111,19 @@ function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; syst
   const queue = hydrated ? reviewQueue(model, course, cards) : [];
   const dueCards = queue.reduce((n, it) => n + it.plies.length, 0);
   const recommended = dueCards ? "review" : newLines ? "learn" : "drill";
+  // the daily new-line cap (§4.9): a suggestion, Learn still works past it
+  const newToday = hydrated ? Math.max(0, prefs.dailyNewLines - linesLearnedToday(allCourseProgress())) : prefs.dailyNewLines;
+  const learnSub = !newLines ? "all learned" : newToday ? `${newLines} new line${newLines === 1 ? "" : "s"} · ${Math.min(newToday, newLines)} today` : `${newLines} new · today’s ${prefs.dailyNewLines} done`;
+  // "Core adds ~11 reviews/day next week"
+  const tierKey = tiers.join();
+  const adds = useMemo(() => {
+    if (!hydrated) return null;
+    const c = allCards();
+    const learned = (id: string) => !!courseProgress(course.id).lines[id]?.learnedAt;
+    const opts = { perDay: prefs.dailyNewLines, retention: prefs.targetRetention, cap: prefs.dailyReviewCap };
+    return Object.fromEntries(tiers.map((t) => [t, Math.round(tierAddsPerDay(model, course, t, c, learned, opts))])) as Partial<Record<TierKey, number>>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` stands for the learner's cards
+  }, [hydrated, course, model, version, prefs.dailyNewLines, prefs.targetRetention, prefs.dailyReviewCap, tierKey]);
 
   return (
     <div className="py-8">
@@ -145,6 +161,11 @@ function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; syst
               >
                 <div className="font-medium">{TIER_LABEL[t]} · {course.tiers[t].lines} lines</div>
                 <div className="text-xs text-muted">covers {Math.round(course.tiers[t].coverage * 100)}% of master games after {sigmaLabel}</div>
+                {adds?.[t] != null && (
+                  <div className="text-xs text-muted" data-testid={`tier-adds-${t}`} title={`If you learn ${prefs.dailyNewLines} new lines a day; simulated with your cards and settings`}>
+                    {adds[t] ? `adds ~${adds[t]} review${adds[t] === 1 ? "" : "s"}/day next week` : "nothing new to add"}
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -166,7 +187,7 @@ function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; syst
 
           {/* mode cards */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2" data-testid="mode-cards">
-            <ModeCard href={`${base}?mode=learn${tierQ}`} icon={<GraduationCap size={18} />} title="Learn" sub={`${newLines} new line${newLines === 1 ? "" : "s"}`} recommended={recommended === "learn"} testid="mode-learn" />
+            <ModeCard href={`${base}?mode=learn${tierQ}`} icon={<GraduationCap size={18} />} title="Learn" sub={learnSub} recommended={recommended === "learn"} testid="mode-learn" />
             <ModeCard href={`${base}?mode=review`} icon={<RotateCcw size={18} />} title="Review" sub={dueCards ? `${dueCards} due · ~${reviewMinutes(dueCards)} min` : "nothing due"} recommended={recommended === "review"} testid="mode-review" />
             <ModeCard href={`${base}?mode=drill`} icon={<Dumbbell size={18} />} title="Drill" sub="shuffle chapters · no schedule" recommended={recommended === "drill"} testid="mode-drill" />
           </div>

@@ -9,11 +9,17 @@ describe("dashboard stats", () => {
     expect(streak({ "2026-10-17": [1, 1], "2026-10-16": [1, 0] }, now)).toBe(2);
     expect(streak({ "2026-10-15": [1, 1] }, now)).toBe(0);
   });
-  it("forecast puts overdue and just-learned cards today and buckets the rest by due day", () => {
+  it("forecast counts just-learned cards today, skips archived ones, and follows the schedule", () => {
     const fresh = newCard("white", "x", "e4", now); // introduced, waiting for its first rep
-    const later = review(newCard("white", "y", "d4", now), "good", now);
-    later.due = "2026-10-21T08:00:00Z";
-    const archived = { ...fresh, archived: true };
-    expect(forecast([fresh, later, archived], now)).toEqual([1, 0, 0, 1, 0, 0, 0]);
+    const archived = { ...fresh, epd: "z", archived: true };
+    const f = forecast([fresh, archived], now);
+    expect(f).toHaveLength(7);
+    expect(f[0]).toBeGreaterThanOrEqual(1);
+    expect(forecast([archived], now).every((x) => x === 0)).toBe(true);
+    // a card reviewed Good a few days ago with a 3-day interval comes up on its day, not today
+    const later = { ...review(fresh, "good", new Date(now.getTime() - 86400_000)), epd: "y", state: 2, stability: 3, due: new Date(now.getTime() + 2 * 86400_000).toISOString() };
+    const g = forecast([later], now);
+    expect(g[0]).toBe(0);
+    expect(g.slice(1, 4).reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(1);
   });
 });

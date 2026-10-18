@@ -5,7 +5,8 @@
  */
 import type { Course, CourseLine } from "@/lib/openings-build/courses";
 import { normSan, type Model } from "@/lib/openings-build/model";
-import { cardKey, isReviewable, retrievability, type CardState, type Side } from "@/lib/srs/fsrs";
+import { cardKey, isReviewable, newCard, retrievability, type CardState, type Side } from "@/lib/srs/fsrs";
+import { simulateForecast, startOfDay } from "@/lib/srs/workload";
 import { chapterTrunk, divergence } from "./session";
 
 export type TierKey = "essentials" | "core" | "complete";
@@ -139,4 +140,52 @@ export function sameLine(course: Course, line: CourseLine): CourseLine | null {
     return i;
   };
   return [...course.lines].sort((a, b) => shared(b) - shared(a) || a.idx - b.idx)[0] ?? null;
+}
+
+/**
+ * The cards a tier would add: the learner moves of its unlearned lines that
+ * have no card yet, line by line in tier order (a shared trunk counts once).
+ */
+export function tierNewCards(model: Model, course: Course, tier: TierKey, cards: Record<string, CardState>, learned: (lineId: string) => boolean): { lineId: string; cards: CardState[] }[] {
+  const seen = new Set(Object.keys(cards));
+  const out: { lineId: string; cards: CardState[] }[] = [];
+  for (const li of tierLines(course, tier)) {
+    const line = course.lines[li];
+    if (learned(line.id)) continue;
+    const fresh: CardState[] = [];
+    for (const m of learnerMoves(model, course.side, line)) {
+      const key = cardKey(course.side, m.epd, m.answer);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      fresh.push(newCard(course.side, m.epd, m.answer));
+    }
+    out.push({ lineId: line.id, cards: fresh });
+  }
+  return out;
+}
+
+/**
+ * "Core adds ~11 reviews/day next week": the extra reviews per day, averaged
+ * over the next 7 days, if the tier's new lines are learned at `perDay` lines
+ * a day starting today (simulated with FSRS, every review answered Good).
+ */
+export function tierAddsPerDay(
+  model: Model,
+  course: Course,
+  tier: TierKey,
+  cards: Record<string, CardState>,
+  learned: (lineId: string) => boolean,
+  opts: { perDay: number; retention: number; cap?: number; now?: Date }
+): number {
+  const now = opts.now ?? new Date();
+  const lines = tierNewCards(model, course, tier, cards, learned);
+  if (!lines.length) return 0;
+  const days = 7;
+  const newByDay: CardState[][] = Array.from({ length: days }, (_, d) =>
+    lines.slice(d * opts.perDay, (d + 1) * opts.perDay).flatMap((l) => l.cards.map((c) => ({ ...c, due: startOfDay(now, d).toISOString() })))
+  );
+  const all = Object.values(cards);
+  const base = simulateForecast(all, now, { days, retention: opts.retention, cap: opts.cap });
+  const withTier = simulateForecast(all, now, { days, retention: opts.retention, cap: opts.cap, newByDay });
+  return withTier.reduce((s, n, i) => s + n - base[i], 0) / days;
 }

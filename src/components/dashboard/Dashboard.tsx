@@ -14,6 +14,7 @@ import { reviewMinutes } from "@/lib/catalog-client";
 import { activityLog, allCards, overridesFor, useProgressVersion } from "@/lib/progress/store";
 import { isMature, isReviewable, type CardState } from "@/lib/srs/fsrs";
 import { forecast, streak } from "@/lib/progress/stats";
+import { getPrefs } from "@/lib/prefs";
 import { useLatestChanges } from "@/lib/changelog-client";
 import { summarizeEntry } from "@/lib/openings-build/diff";
 import { ContinueRow } from "@/components/openings/CatalogClient";
@@ -47,7 +48,8 @@ export default function Dashboard() {
   const due = cards.filter((c) => isReviewable(c, now)).length;
   const mature = cards.filter((c) => !c.archived && isMature(c)).length;
   const days = streak(activityLog(), now);
-  const fc = forecast(cards, now);
+  const prefs = getPrefs();
+  const fc = forecast(cards, now, { cap: prefs.dailyReviewCap, retention: prefs.targetRetention });
   const started = cards.length > 0;
 
   return (

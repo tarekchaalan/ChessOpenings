@@ -9,12 +9,15 @@
  */
 import { useEffect, useState } from "react";
 import { cardKey, newCard, review, type CardState, type Grade, type Side } from "@/lib/srs/fsrs";
+import { planDailyCap } from "@/lib/srs/workload";
 
 export const KEYS = {
   cards: "cot.v2.cards",
   courses: "cot.v2.courseProgress",
   overrides: "cot.v2.overrides",
   activity: "cot.v2.activity",
+  /** local date the daily review cap was last applied */
+  capDay: "cot.v2.capDay",
 } as const;
 
 export type TierKey = "essentials" | "core" | "complete";
@@ -30,6 +33,8 @@ export interface CourseProgress {
   lastLineId: string | null;
   lastStudiedAt: string | null;
   lines: Record<string, LineProgress>;
+  /** v1 opening progress folded in by the guest migration (ADR 0003) */
+  v1?: { seen: number; correct: number; streak: number; bestStreak: number; updatedAt: string };
 }
 
 const EVENT = "cot:progress";
@@ -133,6 +138,26 @@ function logActivity(now: Date, grade: Grade): void {
 }
 
 export const activityLog = () => read<Record<string, number[]>>(KEYS.activity, {});
+
+/**
+ * Apply the daily review cap once per local day (ADR 0003): the overflow's
+ * `due` moves to the coming days, lowest recall first. Returns the deferred
+ * cards (signed in, they're mirrored to the server).
+ */
+export function applyDailyCap(cap: number, retention: number, now = new Date()): CardState[] {
+  if (typeof window === "undefined") return [];
+  const day = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  if (read<string | null>(KEYS.capDay, null) === day) return [];
+  const cards = allCards();
+  const plan = planDailyCap(Object.values(cards), cap, now, retention);
+  for (const c of plan.deferred) cards[cardKey(c.side, c.epd, c.answer)] = c;
+  if (plan.deferred.length) write(KEYS.cards, cards);
+  write(KEYS.capDay, day);
+  return plan.deferred;
+}
+
+/** Tell subscribers the stored progress changed (writes outside this module: the migration). */
+export const notifyProgress = () => typeof window !== "undefined" && window.dispatchEvent(new CustomEvent(EVENT));
 
 /** Re-render on any progress write (this tab) or storage change (other tabs). */
 export function useProgressVersion(): number {

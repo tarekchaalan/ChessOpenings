@@ -29,9 +29,10 @@ const handler = withSupabase({ auth: "user" }, async (_req, ctx) => {
       .select("username, rating, attempts, correct")
       .eq("id", userId)
       .single(),
+    // v2 (ADR 0004): per-course counters; mastery is client-reported, display only
     ctx.supabase
-      .from("opening_progress")
-      .select("opening_id, seen, correct, streak, best_streak, mastery, updated_at")
+      .from("course_progress")
+      .select("course_id, seen, correct, streak, best_streak, mastery, last_line_id, updated_at")
       .order("updated_at", { ascending: false }),
     ctx.supabase
       .from("srs_cards")
@@ -46,7 +47,7 @@ const handler = withSupabase({ auth: "user" }, async (_req, ctx) => {
 
   return Response.json({
     profile: profile.data,
-    openings: progress.data,
+    courses: progress.data,
     reviewsDue: due.count ?? 0,
   });
 });

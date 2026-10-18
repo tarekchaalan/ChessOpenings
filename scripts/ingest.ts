@@ -12,7 +12,8 @@
  *   5. Emits:
  *        public/data/openings.v1.json   — compact runtime dataset
  *        public/data/openings.meta.json — version, source pins, counts, sha256
- *        supabase/seed.sql              — theory tables for server-side quiz validation
+ *        supabase/seed.v1.sql           — v1 theory tables (the dry run's v1 baseline;
+ *                                         the live seed.sql is v2: scripts/supabase/gen-seed-v2.ts)
  *
  * Usage:  npm run ingest            (downloads into data/cache if missing)
  *         npm run ingest -- --skip-corpus   (graph only, no frequency stats)
@@ -351,8 +352,8 @@ function emitSeedSql(nodes: Node[], openings: Opening[]): void {
     lines.push(`insert into public.theory_edges (from_epd, san, to_epd, games, white_wins, draws, black_wins) values\n${edgeRows.slice(i, i + 1000).join(",\n")};`);
   }
   lines.push("commit;", "analyze public.theory_openings, public.theory_edges;");
-  writeFileSync(join(OUT_SUPABASE, "seed.sql"), lines.join("\n") + "\n");
-  console.log(`  supabase/seed.sql (${openings.length} openings, ${edgeRows.length} theory edges)`);
+  writeFileSync(join(OUT_SUPABASE, "seed.v1.sql"), lines.join("\n") + "\n");
+  console.log(`  supabase/seed.v1.sql (${openings.length} openings, ${edgeRows.length} theory edges)`);
 }
 
 // ---------------------------------------------------------------------------

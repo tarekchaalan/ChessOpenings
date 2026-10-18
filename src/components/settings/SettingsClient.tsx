@@ -16,8 +16,9 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/supabase/AuthProvider";
+import { useHydrated } from "@/lib/hooks";
 import { getSupabase } from "@/lib/supabase/client";
-import { clearLocalData, setPref, usePrefs } from "@/lib/prefs";
+import { clearLocalData, clearV1Backup, setPref, usePrefs, v1BackupSize } from "@/lib/prefs";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 
@@ -304,10 +305,10 @@ function PreferencesTab() {
             format={(v) => (v === 0 ? "instant" : `${(v / 1000).toFixed(1)} s`)}
             onChange={(v) => setPref("replyDelayMs", v)}
           />
-          <Range label="New lines per day" hint="Saved now; the daily plan that uses it is coming soon." value={prefs.dailyNewLines} min={1} max={30} step={1} format={String} onChange={(v) => setPref("dailyNewLines", v)} />
+          <Range label="New lines per day" hint="Learn suggests up to this many new lines a day; you can always learn more." value={prefs.dailyNewLines} min={1} max={30} step={1} format={String} onChange={(v) => setPref("dailyNewLines", v)} />
           <Range
             label="Reviews per day"
-            hint="Coming soon with the daily plan: when more are due, the rest wait for the next day, lowest recall first. Nothing is dropped."
+            hint="When more are due, the rest wait for the next day(s), lowest recall first. Nothing is dropped."
             value={prefs.dailyReviewCap}
             min={20}
             max={500}
@@ -449,6 +450,11 @@ function DataTab() {
   const [meta, setMeta] = useState<DatasetMeta | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [cleared, setCleared] = useState(false);
+  // the v1 backup the migration kept (ADR 0003): removed only on its own confirmation
+  const hydrated = useHydrated();
+  const [backupGone, setBackupGone] = useState(false);
+  const backup = hydrated && !backupGone ? v1BackupSize() : 0;
+  const [confirmBackup, setConfirmBackup] = useState(false);
 
   useEffect(() => {
     fetch("/data/openings.meta.json")
@@ -519,6 +525,33 @@ function DataTab() {
           </button>
         )}
       </Card>
+
+      {backup > 0 && (
+        <Card title="Backup from the previous version">
+          <p className="text-sm text-muted mb-3">
+            Your progress from the previous trainer was converted to the new one. A copy of the original ({Math.max(1, Math.round(backup / 1024))} KB) is kept in
+            this browser in case anything needs recovering. Clearing local data doesn&apos;t remove it.
+          </p>
+          <button
+            data-testid="clear-v1-backup"
+            onClick={() => {
+              if (!confirmBackup) {
+                setConfirmBackup(true);
+                setTimeout(() => setConfirmBackup(false), 4000);
+                return;
+              }
+              clearV1Backup();
+              setBackupGone(true);
+            }}
+            className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm transition-colors ${
+              confirmBackup ? "border-danger bg-danger text-white" : "border-edge bg-surface text-danger hover:border-danger"
+            }`}
+          >
+            <Trash2 size={15} />
+            {confirmBackup ? "Click again to delete the backup for good" : "Delete the backup"}
+          </button>
+        </Card>
+      )}
     </div>
   );
 }

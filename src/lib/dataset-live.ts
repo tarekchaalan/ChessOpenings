@@ -74,6 +74,11 @@ export function loadDataset(): Promise<Dataset> {
   return loading;
 }
 
+/** The current build's outputHash without loading the dataset (the loaded one's, once loaded). */
+export async function currentOutputHash(): Promise<string> {
+  return current?.outputHash ?? (await fetchMeta()).outputHash;
+}
+
 export function currentDataset(): Dataset | null {
   return current;
 }
