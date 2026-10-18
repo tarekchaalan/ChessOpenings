@@ -112,6 +112,11 @@ export function retrievability(card: CardState, now = new Date(), retention = DE
 }
 
 export const isDue = (c: CardState, now = new Date()) => !c.archived && c.state !== State.New && new Date(c.due) <= now;
+/**
+ * In Review's queue: due, or introduced in Learn and still waiting for its
+ * first rep (Recall is that rep; skipping Recall must not strand the card).
+ */
+export const isReviewable = (c: CardState, now = new Date()) => !c.archived && (c.state === State.New || new Date(c.due) <= now);
 export const isMature = (c: CardState) => c.stability >= MATURE_STABILITY_DAYS;
 export const isNew = (c: CardState) => c.state === State.New;
 

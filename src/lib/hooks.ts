@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Dataset, loadLegacyDataset } from "./openings";
 import { useLiveDataset } from "./dataset-live";
 import { useAuth } from "./supabase/AuthProvider";
@@ -62,15 +62,21 @@ export function useQuizBackend(ds: Dataset | null): QuizBackend | null {
   }, [ds, user]);
 }
 
-/** Media-query hook used for responsive board sizing. */
+/** Media-query hook used for responsive board sizing (false during SSR). */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    setMatches(mq.matches);
-    const fn = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mq.addEventListener("change", fn);
-    return () => mq.removeEventListener("change", fn);
-  }, [query]);
-  return matches;
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    [query]
+  );
+  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches, () => false);
+}
+
+const noopSubscribe = () => () => {};
+/** True after hydration (client-only state such as localStorage), false during SSR. */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardKey, gradeFor, isDue, isMature, newCard, review, State } from "../fsrs";
+import { cardKey, gradeFor, isDue, isMature, isReviewable, newCard, review, State } from "../fsrs";
 
 const NOW = new Date("2026-10-18T10:00:00Z");
 
@@ -27,6 +27,7 @@ describe("cards", () => {
     let c = newCard("white", "epd", "e4", NOW);
     expect(c.state).toBe(State.New);
     expect(isDue(c, NOW)).toBe(false); // new cards aren't "due" reviews
+    expect(isReviewable(c, NOW)).toBe(true); // …but an introduced card waits for its first rep
     c = review(c, "good", NOW);
     expect(new Date(c.due).getTime()).toBeGreaterThan(NOW.getTime());
     expect(c.reps).toBe(1);

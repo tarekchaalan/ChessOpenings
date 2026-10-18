@@ -281,14 +281,120 @@ function PreferencesTab() {
         />
       </Card>
 
-      <Card title="Learn mode">
-        <Toggle
-          label="Show hint arrows by default"
-          description="The green next-expected-move arrow when starting a walkthrough. You can still toggle it during a lesson with H."
-          checked={prefs.learnHints}
-          onChange={(v) => setPref("learnHints", v)}
-        />
+      <Card title="Training">
+        <div className="space-y-5">
+          <Toggle
+            label="Hint arrows in Learn"
+            description="The green arrow on the move to play while learning a line. Recall and Review never show it."
+            checked={prefs.learnHints}
+            onChange={(v) => setPref("learnHints", v)}
+          />
+          <Toggle
+            label="Skip known moves"
+            description="Learn fast-forwards the moves you already know, so each new line starts where it gets new."
+            checked={prefs.skipKnown}
+            onChange={(v) => setPref("skipKnown", v)}
+          />
+          <Range
+            label="Opponent reply delay"
+            value={prefs.replyDelayMs}
+            min={0}
+            max={1500}
+            step={100}
+            format={(v) => (v === 0 ? "instant" : `${(v / 1000).toFixed(1)} s`)}
+            onChange={(v) => setPref("replyDelayMs", v)}
+          />
+          <Range label="New lines per day" hint="Saved now; the daily plan that uses it is coming soon." value={prefs.dailyNewLines} min={1} max={30} step={1} format={String} onChange={(v) => setPref("dailyNewLines", v)} />
+          <Range
+            label="Reviews per day"
+            hint="Coming soon with the daily plan: when more are due, the rest wait for the next day, lowest recall first. Nothing is dropped."
+            value={prefs.dailyReviewCap}
+            min={20}
+            max={500}
+            step={10}
+            format={String}
+            onChange={(v) => setPref("dailyReviewCap", v)}
+          />
+          <Range
+            label="Target retention"
+            hint="How likely you should be to remember a move when it comes up. Higher means more reviews."
+            value={Math.round(prefs.targetRetention * 100)}
+            min={80}
+            max={97}
+            step={1}
+            format={(v) => `${v}%`}
+            onChange={(v) => setPref("targetRetention", v / 100)}
+          />
+        </div>
       </Card>
+
+      <Card title="Board">
+        <div className="grid grid-cols-4 gap-2 max-w-sm" role="radiogroup" aria-label="Board theme">
+          {(["brown", "blue", "green", "gray"] as const).map((t) => (
+            <button
+              key={t}
+              role="radio"
+              aria-checked={prefs.boardTheme === t}
+              onClick={() => setPref("boardTheme", t)}
+              className={`rounded-lg border p-1.5 text-xs capitalize ${prefs.boardTheme === t ? "border-accent bg-accent-soft font-medium" : "border-edge bg-surface text-muted"}`}
+            >
+              <span className={`board-swatch board-theme-${t} block w-full aspect-square rounded mb-1`} aria-hidden />
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-2 max-w-sm" role="radiogroup" aria-label="Motion">
+          {(
+            [
+              { id: "system", label: "Motion: system" },
+              { id: "reduce", label: "Reduce" },
+              { id: "full", label: "Full" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.id}
+              role="radio"
+              aria-checked={prefs.motion === m.id}
+              onClick={() => setPref("motion", m.id)}
+              className={`h-10 rounded-lg border text-sm ${prefs.motion === m.id ? "border-accent bg-accent-soft text-accent font-medium" : "border-edge bg-surface text-muted hover:text-foreground"}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Range({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  const id = `range-${label.replace(/\W+/g, "-").toLowerCase()}`;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <label htmlFor={id} className="text-sm font-medium">{label}</label>
+        <span className="text-sm text-muted tabular-nums">{format(value)}</span>
+      </div>
+      {hint && <p className="text-xs text-muted mt-0.5">{hint}</p>}
+      <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full mt-2 accent-[var(--accent)]" />
     </div>
   );
 }

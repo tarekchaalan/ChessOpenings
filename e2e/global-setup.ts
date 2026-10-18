@@ -7,6 +7,7 @@ const ROUTES = [
   "/openings/ruy-lopez?stay=1",
   "/openings/ruy-lopez/closed/white",
   "/changes",
+  "/train/ruy-lopez/closed/white?mode=learn",
 ];
 // Turbopack keeps compiling and writing its filesystem cache for a while after
 // the first visits; a rebuild started then is starved of CPU

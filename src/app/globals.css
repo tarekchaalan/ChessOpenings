@@ -193,3 +193,21 @@ cg-board square.sq-authored-blue { background: rgb(0 48 136 / 0.32); }
 .promo-piece { position: relative; width: 100%; aspect-ratio: 1 / 1; background: var(--surface); border: 1px solid var(--border); }
 .promo-piece:hover, .promo-piece:focus-visible { background: var(--accent-soft); outline: 2px solid var(--accent); }
 .promo-piece .mp { position: absolute; inset: 6%; width: 88%; height: 88%; background-size: cover; }
+
+/* ── Trainer ──────────────────────────────────────────────────────────── */
+.trainer .board-shell { max-width: 100%; }
+@media (min-width: 768px) { .trainer .board-shell { max-width: 640px; } }
+.crumb-fade { animation: crumb-fade 260ms ease-out; }
+@keyframes crumb-fade { from { opacity: 0; } to { opacity: 1; } }
+.chip-flash { animation: chip-flash 420ms ease-out; }
+@keyframes chip-flash { from { background: var(--accent-soft); } }
+@media (prefers-reduced-motion: reduce) { .crumb-fade, .chip-flash { animation: none; } }
+.trainer.reduced .crumb-fade, .trainer.reduced .chip-flash, .trainer.reduced .cg-badge-ok { animation: none; }
+
+/* board themes (brown is chessground's default image) */
+.board-theme-blue cg-board, .board-swatch.board-theme-blue { background-image: repeating-conic-gradient(#8ca2ad 0% 25%, #dee3e6 0% 50%); background-size: 25% 25%; }
+.board-theme-green cg-board, .board-swatch.board-theme-green { background-image: repeating-conic-gradient(#86a666 0% 25%, #ffffdd 0% 50%); background-size: 25% 25%; }
+.board-theme-gray cg-board, .board-swatch.board-theme-gray { background-image: repeating-conic-gradient(#8b8b8b 0% 25%, #d9d9d9 0% 50%); background-size: 25% 25%; }
+.board-swatch.board-theme-brown { background-image: repeating-conic-gradient(#b58863 0% 25%, #f0d9b5 0% 50%); background-size: 50% 50%; }
+.board-swatch { background-size: 50% 50% !important; }
+.trainer { overflow-x: clip; }

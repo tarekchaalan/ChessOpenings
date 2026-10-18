@@ -20,14 +20,20 @@ interface Derived {
   courses: Map<string, Course>;
 }
 
-let derived: Derived | null = null;
+// the two most recent datasets: a trainer run keeps the snapshot it started on
+// while the rest of the app moves to a live-updated one
+const derivedCache: Derived[] = [];
 
 function base(ds: Dataset): Derived {
   if (!ds.raw) throw new Error("course data needs the v2 dataset");
-  if (!derived || derived.hash !== ds.outputHash) {
-    derived = { hash: ds.outputHash ?? "", model: modelFromRaw(ds.raw), hubs: new Map(), courses: new Map() };
+  const hash = ds.outputHash ?? "";
+  let d = derivedCache.find((x) => x.hash === hash);
+  if (!d) {
+    d = { hash, model: modelFromRaw(ds.raw), hubs: new Map(), courses: new Map() };
+    derivedCache.unshift(d);
+    derivedCache.length = Math.min(derivedCache.length, 2);
   }
-  return derived;
+  return d;
 }
 
 export function catalogOf(ds: Dataset): RawCatalog | null {

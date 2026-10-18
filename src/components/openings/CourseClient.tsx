@@ -8,7 +8,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Play } from "lucide-react";
 import MiniBoard from "@/components/MiniBoard";
-import { useDataset } from "@/lib/hooks";
+import { useDataset, useHydrated } from "@/lib/hooks";
 import {
   courseHref,
   courseSummary,
@@ -17,6 +17,7 @@ import {
   hubHref,
   hubSummary,
   loadCourse,
+  modelOf,
   type Course,
   type RawHubSummary,
   type RawSystemSummary,
@@ -25,6 +26,8 @@ import {
 import { useLatestChanges } from "@/lib/changelog-client";
 import type { CourseLine } from "@/lib/openings-build/courses";
 import type { Dataset } from "@/lib/openings";
+import { reviewQueue } from "@/lib/trainer/plan";
+import { allCards, courseProgress, useProgressVersion } from "@/lib/progress/store";
 
 export type TierKey = "essentials" | "core" | "complete";
 const TIER_LABEL: Record<TierKey, string> = { essentials: "Essentials", core: "Core", complete: "Complete" };
@@ -121,6 +124,8 @@ function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; syst
             Percentages are “of master games” in the pinned 2026 corpus, not rating-banded.
           </p>
 
+          <ModeLinks ds={ds} course={course} hub={hub} system={system} tier={tier} />
+
           <h2 className="mt-6 text-sm font-medium text-muted uppercase tracking-wide">Chapters</h2>
           <ol className="mt-2 space-y-2" data-testid="chapters">
             {course.chapters.map((ch, ci) => {
@@ -205,6 +210,30 @@ function ChapterBlock({
         </div>
       )}
     </li>
+  );
+}
+
+/** Learn / Review / Drill entry points with live counters (the mode cards land in Phase 4). */
+function ModeLinks({ ds, course, hub, system, tier }: { ds: Dataset; course: Course; hub: RawHubSummary; system: RawSystemSummary; tier: TierKey }) {
+  useProgressVersion();
+  const mounted = useHydrated();
+  const base = `/train/${hub.slug}/${system.slug}/${system.side}`;
+  const progress = mounted ? courseProgress(course.id) : null;
+  const fresh = progress ? [...tierLines(course, tier)].filter((li) => !progress.lines[course.lines[li].id]?.learnedAt).length : null;
+  const due = mounted ? reviewQueue(modelOf(ds), course, allCards()).reduce((n, it) => n + it.plies.length, 0) : null;
+  const cls = "px-3 min-h-[44px] md:min-h-[38px] inline-flex items-center rounded-lg border text-sm";
+  return (
+    <div className="mt-4 flex flex-wrap gap-2" data-testid="mode-links">
+      <Link href={`${base}?mode=learn${tier !== "essentials" ? `&tier=${tier}` : ""}`} className={`${cls} border-accent bg-accent text-accent-fg font-medium`}>
+        Learn{fresh !== null ? ` · ${fresh} new line${fresh === 1 ? "" : "s"}` : ""}
+      </Link>
+      <Link href={`${base}?mode=review`} className={`${cls} border-edge bg-surface hover:bg-surface-2`} aria-disabled={due === 0}>
+        Review{due !== null ? ` · ${due} due` : ""}
+      </Link>
+      <Link href={`${base}?mode=drill`} className={`${cls} border-edge bg-surface hover:bg-surface-2`}>
+        Drill
+      </Link>
+    </div>
   );
 }
 

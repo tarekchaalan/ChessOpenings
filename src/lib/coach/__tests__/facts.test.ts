@@ -35,12 +35,15 @@ describe("threat detection (10 real positions)", () => {
   it("long-standing threats are not repeated: Ruy Exchange 5.O-O keeps an existing Nxe5", () => {
     expect(threats("e4 e5 Nf3 Nc6 Bb5 a6 Bxc6 dxc6 O-O").some((t) => t.san === "Nxe5")).toBe(false);
   });
-  it("no false claim after 4.Ng5 in the Two Knights: Nxf7 takes a defended pawn, Bxf7+ is a plain bishop check", () => {
-    // the real idea (Nxf7 forking queen and rook) is beyond the verified rules, so nothing is claimed
-    expect(threats("e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5")).toEqual([]);
+  it("Two Knights 4.Ng5: Bxf7+ becomes a safe check (Ng5 defends f7); Nxf7 takes a defended pawn, so it isn't claimed", () => {
+    // before 4.Ng5, Bxf7+ just lost the bishop to Kxf7
+    expect(threats("e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5").map((t) => [t.kind, t.san])).toEqual([["check", "Bxf7+"]]);
   });
   it("a harmless bishop check is not a threat: 2…e6 allows …Bb4+, which can be blocked", () => {
     expect(threats("d4 d5 c4 e6")).toEqual([]);
+  });
+  it("a check that loses the checker is no threat: Giuoco Piano 3…Bc5 (…Bxf2+ Kxf2)", () => {
+    expect(threats("e4 e5 Nf3 Nc6 Bc4 Bc5").map((t) => t.san)).not.toContain("Bxf2+");
   });
   it("no threats are computed when the learner is in check", () => {
     expect(threats("e4 f6 d4 g5 Qh5+")).toEqual([]);

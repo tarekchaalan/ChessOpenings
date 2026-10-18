@@ -113,3 +113,42 @@ The brushes differ in width, opacity and dash as well as hue (colour-blind safe)
 - Every sentence the coach prints traces to a check or an authored source.
 - Unit tests cover each fact on real positions, including negative cases (no pin, no threat).
 - Authors add content by dropping PGNs. The watcher hot-reloads them.
+
+## Phase 3 amendments (implemented 2026-10-18)
+
+Deviations from the spec are marked **DEVIATION**.
+
+1. **Engine split.** `src/lib/trainer/session.ts` is a pure session: one line in one mode. It owns the feed, the board decorations, the hint and mistake ladders, and the card events. `TrainerView` only drives it (timers, persistence, scrubbing, keyboard).
+   - The trainer is in `src/components/trainer/`; mode planning is `src/lib/trainer/plan.ts`.
+   - 16 engine unit tests run on the shipped dataset.
+2. **Threat rule tightened.** A check counts as a threat only if the checker can't be taken for free or by a cheaper piece.
+   - Before, 3…Bc5 in the Giuoco Piano "threatened" …Bxf2+, which just loses the bishop to Kxf2.
+   - A consequence: after 4.Ng5 in the Two Knights, Bxf7+ is now reported. f7 is defended by the knight, so the check wins a pawn and displaces the king.
+3. **Coach wording fixes, found on real lines.**
+   - "Develops" only when a minor piece leaves its home square; otherwise "repositions".
+   - A pin is called "can't move" only for a knight. Other pinned pieces can move along the pin line (12.Qxd8 …Rxd8).
+   - "For the taking" only when the capture can't be retaken; otherwise "Trade: capture a knight".
+   - Recaptures use the previous move.
+4. **"Make it my move" at a system choice — DEVIATION.** Some moves define the course's system, e.g. 4.Ba4 in the Closed Ruy, where overrides are blocked by design (ADR 0002). There the action switches to the sibling system that plays the move, e.g. 4.Bxc6 → the Exchange Variation course, and replays it. On ordinary nodes after σ it writes an override and re-derives the course.
+5. **Vienna acceptance case — DEVIATION.** The lichess TSVs have no named line with 3…exf4 in the Vienna Gambit (only 3…d5), so no course reaches 4.e5 Ng8. Tested instead:
+   - plan arrows after 3…d5;
+   - the red threat arrow with tinted squares after 4.Ng5 in the Two Knights as Black;
+   - the Vienna 4…Ng8 threat itself, as a coach-fact unit test.
+6. **Branch cards** list at most 4 replies with ≥ 1% of master games (plus the line's own), then "+N rarer".
+7. **No engine yet.** Mistake rule 4 says "Not in this course's book." The eval bar, refutation arrow and [Show refutation] arrive with Stockfish (Phase 6, GPL: ask first).
+8. **Keyboard:** `M` focuses the SAN input, so a whole line can be played without the mouse. It is listed in the `?` sheet.
+9. **Visual QA:** the v1 `/learn` page stands in for the catalog until Phase 4 builds `/openings`.
+10. **Review fixes.**
+    - **Learned cards can't be stranded.** A card introduced in Learn waits for its first rep (`isReviewable`), so skipping Recall still brings it to Review.
+    - **New lines start on their new reply.** Learn's fast-forward stops on the opponent reply just before the first unknown move, so that reply gets its message, frequency, threats and branch card.
+    - **Lapses can't be erased.** A lapse (a real wrong move, or H3) is scheduled as Again at once. Restart doesn't regrade those plies.
+    - **Screen readers get the coach text.** The feed's text stays readable to them; a separate small button scrubs the board.
+    - **Re-teach** posts its own message under the verdict.
+    - **Wrong moves stay up ≥ 900 ms.** The ✕ waits that long before "Try again" or "Show me" takes it back.
+    - **Overrides are checked first.** They are only written once the re-derived course contains the line.
+    - **No answers in Recall/Review.** Authored arrows appear in Learn only.
+    - **Cross-course Review queue** claims each card once and interleaves chapters.
+    - **Live data updates don't reset a line.** Each run keeps the dataset snapshot it started on.
+    - **The data-update toast doesn't block the board.** It now sits top-right on desktop and lets clicks through.
+    - Drill keeps its chapters / "From move 1" in the URL and has a setup panel in the Lines tab.
+    - "Make it my move" is offered in every mode but Drill.

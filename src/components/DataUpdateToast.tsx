@@ -26,22 +26,23 @@ export default function DataUpdateToast() {
     };
   }, []);
   return (
-    <div aria-live="polite" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,460px)]">
+    // top-right on desktop (never over a board's back ranks); clicks pass through except on its controls
+    <div aria-live="polite" className="fixed z-50 pointer-events-none top-16 left-1/2 -translate-x-1/2 w-[min(92vw,460px)] md:left-auto md:right-4 md:translate-x-0 md:w-[400px]">
       {update && (
         <div
           role="status"
           data-testid="data-update-toast"
-          className="flex items-start gap-3 rounded-lg border border-edge bg-surface shadow-lg px-4 py-3 text-sm motion-safe:animate-[toast-in_180ms_ease-out]"
+          className="flex items-start gap-3 rounded-lg border border-edge bg-surface/95 shadow-lg px-4 py-3 text-sm motion-safe:animate-[toast-in_180ms_ease-out]"
         >
           <RefreshCw size={16} className="text-accent mt-0.5 shrink-0" aria-hidden />
           <div className="min-w-0 flex-1">
             <div className="font-medium">Openings updated</div>
             <div className="text-muted truncate" title={update.summary}>{update.summary}</div>
           </div>
-          <Link href="/changes" className="text-accent font-medium hover:underline shrink-0">
+          <Link href="/changes" className="pointer-events-auto text-accent font-medium hover:underline shrink-0">
             See changes
           </Link>
-          <button aria-label="Dismiss" onClick={() => setUpdate(null)} className="text-muted hover:text-foreground shrink-0">
+          <button aria-label="Dismiss" onClick={() => setUpdate(null)} className="pointer-events-auto text-muted hover:text-foreground shrink-0">
             <X size={15} />
           </button>
         </div>

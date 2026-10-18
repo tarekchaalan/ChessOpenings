@@ -76,10 +76,16 @@ function threatsFor(fen: string, by: Color): Threat[] {
  * forking check), or one that can't be blocked or captured (king must move).
  */
 function seriousCheck(chess: Chess, mv: Move): boolean {
-  if (mv.piece === "q" || mv.piece === "r") return true;
   const c = new Chess(chess.fen());
   c.move(mv.san);
   const victim = c.turn();
+  // a check that just loses the checker isn't a threat (3…Bc5 "threatens" …Bxf2+ Kxf2)
+  const takers = (c.moves({ verbose: true }) as Move[]).filter((m) => m.to === mv.to && m.captured);
+  if (takers.length) {
+    const defended = c.attackers(mv.to as Square, mv.color).length > 0;
+    if (!defended || takers.some((m) => VALUE[m.piece] < VALUE[mv.piece])) return false;
+  }
+  if (mv.piece === "q" || mv.piece === "r") return true;
   // forking check: from its new square the checker also hits a loose or bigger piece
   const flipped = flipTurn(c.fen());
   if (flipped) {
@@ -223,6 +229,8 @@ export interface MoveFacts {
   san: string;
   color: Color;
   piece: PieceSymbol;
+  from: string;
+  to: string;
   capture: { piece: PieceSymbol; square: string; recapture: boolean } | null;
   check: boolean;
   mate: boolean;
@@ -251,6 +259,8 @@ export function moveFacts(fenBefore: string, san: string, previous: Move | null 
     san: move.san,
     color: move.color,
     piece: move.piece,
+    from: move.from,
+    to: move.to,
     capture: move.captured ? { piece: move.captured, square: move.to, recapture: isRecapture(move, previous) } : null,
     check: chess.inCheck(),
     mate: chess.isCheckmate(),

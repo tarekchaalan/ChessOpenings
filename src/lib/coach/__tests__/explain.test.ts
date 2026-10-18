@@ -42,6 +42,14 @@ describe("coach text", () => {
     expect(idea).toBe("Pin a piece with your bishop.");
     expect(idea).not.toMatch(/g5/);
     expect(ideaText(fen("e4 e5"), "Nf3", empty)).toBe("Develop a knight.");
+    expect(ideaText(fen(""), "e4", empty)).toBe("Claim the centre with a pawn.");
+    // a bishop that is already out isn't "developed"
+    expect(ideaText(fen("e4 e5 Nf3 Nc6 Bb5 a6"), "Ba4", empty)).toBe("Reposition a bishop that's already out.");
+    expect(whyText(fen("e4 e5 Nf3 Nc6 Bb5 a6"), "Ba4", { annotations: empty, names: [], stats: null, previous: null }).text).not.toMatch(/Develops/);
+    // a recapture is named as one when the previous move is known
+    const c = new Chess(fen("d4 d5 c4 e6 Nc3 Nf6 cxd5"));
+    const prev = new Chess(fen("d4 d5 c4 e6 Nc3 Nf6")).move("cxd5");
+    expect(ideaText(c.fen(), "exd5", empty, prev)).toBe("Restore the material balance.");
   });
   it("opponent text includes created threats (Vienna 4…Ng8)", () => {
     const o = opponentText(fen("e4 e5 Nc3 Nf6 f4 exf4 e5"), "Ng8", ctx);
