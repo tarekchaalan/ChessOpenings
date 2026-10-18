@@ -43,3 +43,5 @@ next-env.d.ts
 # ingest cache (large downloads)
 /data/cache/
 .gstack/
+
+.claude
