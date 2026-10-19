@@ -72,7 +72,11 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
      it prints before confirming, since it pushes every `[auth]` setting):
      `RESEND_API_KEY=… supabase config push`
 6. Account deletion (Settings → Delete account) calls `DELETE /api/account`,
-   which needs the server variables below (`SUPABASE_SECRET_KEY` etc.).
+   which needs the server variables below (`SUPABASE_SECRET_KEY` etc.). It
+   deletes the auth user; every user table cascades from it.
+   `scripts/supabase/test-deletion.sh` proves it on a local Postgres: it fills
+   every user table for two players, deletes one, and scans every uuid and
+   text column for the deleted id.
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
 and `seed/*.sql` automatically. Migrating an existing v1 project (user data):
@@ -187,6 +191,10 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ```
 
 ## Notes
+
+- **Analytics:** Vercel Web Analytics (`@vercel/analytics`, the `<Analytics />`
+  component in `src/app/layout.tsx`). Turn it on in the Vercel project
+  (Analytics tab); it reports page views only on Vercel deployments.
 
 - Without Supabase env vars the app runs in guest-only mode (no leaderboard).
 - The explorer optionally augments stats with the public Lichess masters API

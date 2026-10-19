@@ -317,7 +317,9 @@ function DeleteAccountCard({ confirmWord }: { confirmWord: string }) {
     <section className="rounded-lg border border-danger/40 bg-surface p-5" data-testid="delete-account">
       <h2 className="text-xs uppercase tracking-wider text-danger mb-3">Delete account</h2>
       <p className="text-sm text-muted">
-        Permanently deletes your account, username, rating, review schedule and leaderboard history. This can&apos;t be undone.
+        Permanently deletes your account and everything stored about you: username, rating and leaderboard history, review
+        schedule and course progress, linked Lichess and Chess.com accounts and imported games, follows, followers, blocks,
+        privacy settings, feed activity, notifications and setup answers. This can&apos;t be undone.
       </p>
       {!open ? (
         <button
