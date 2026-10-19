@@ -27,6 +27,20 @@ export interface FetchDeps {
 }
 const defaultDeps = (): FetchDeps => ({ fetch: (...a) => fetch(...a), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) });
 
+/** `deps.sleep`, but rejecting with an AbortError as soon as `signal` aborts (Cancel during a 429 back-off). */
+function sleepUnless(deps: FetchDeps, ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return deps.sleep(ms);
+  if (signal.aborted) return Promise.reject(new DOMException("aborted", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("aborted", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    deps.sleep(ms).then(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, reject);
+  });
+}
+
 export const RETRY_AFTER_MS = 60_000;
 const LICHESS = "https://lichess.org";
 const CHESSCOM = "https://api.chess.com/pub";
@@ -55,7 +69,7 @@ async function get(platform: Platform, url: string, deps: FetchDeps, init: Reque
     }
     if (res.status === 429) {
       if (attempt === 0) {
-        await deps.sleep(RETRY_AFTER_MS);
+        await sleepUnless(deps, RETRY_AFTER_MS, signal);
         continue;
       }
       throw new InsightsFetchError("rate-limited", platform, `${PLATFORM_NAME[platform]} asked us to slow down. Try again in a minute.`);
@@ -82,20 +96,20 @@ export interface Profile {
 }
 
 /** Check that the user exists; their display name and current ratings. */
-export function lookupProfile(platform: Platform, username: string, deps: FetchDeps = defaultDeps()): Promise<Profile> {
-  return serial(platform, () => lookup(platform, username, deps));
+export function lookupProfile(platform: Platform, username: string, deps: FetchDeps = defaultDeps(), signal?: AbortSignal): Promise<Profile> {
+  return serial(platform, () => lookup(platform, username, deps, signal));
 }
 
-async function lookup(platform: Platform, username: string, deps: FetchDeps): Promise<Profile> {
+async function lookup(platform: Platform, username: string, deps: FetchDeps, signal?: AbortSignal): Promise<Profile> {
   const u = username.trim();
   if (!validUsername(u)) throw new InsightsFetchError("not-found", platform, "That isn't a valid username.");
   if (platform === "lichess") {
-    const p = lichessProfile(await json(platform, await get(platform, `${LICHESS}/api/user/${encodeURIComponent(u)}`, deps)));
+    const p = lichessProfile(await json(platform, await get(platform, `${LICHESS}/api/user/${encodeURIComponent(u)}`, deps, {}, signal)));
     if (!p) throw new InsightsFetchError("not-found", platform, "That Lichess account is closed or unavailable.");
     return { platform, ...p };
   }
-  const player = await json<{ username?: string }>(platform, await get(platform, `${CHESSCOM}/player/${encodeURIComponent(u.toLowerCase())}`, deps));
-  const stats = await json<Record<string, unknown>>(platform, await get(platform, `${CHESSCOM}/player/${encodeURIComponent(u.toLowerCase())}/stats`, deps));
+  const player = await json<{ username?: string }>(platform, await get(platform, `${CHESSCOM}/player/${encodeURIComponent(u.toLowerCase())}`, deps, {}, signal));
+  const stats = await json<Record<string, unknown>>(platform, await get(platform, `${CHESSCOM}/player/${encodeURIComponent(u.toLowerCase())}/stats`, deps, {}, signal));
   // Chess.com's player endpoint returns the name in lower case; keep what the player typed when it matches
   const name = player.username && player.username.toLowerCase() === u.toLowerCase() ? u : player.username ?? u;
   return { platform, username: name, ratings: chesscomRatings(stats) };

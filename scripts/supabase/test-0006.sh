@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests migration 0006 (ADR 0006) on a scratch database of a LOCAL Postgres:
-# local-shim.sql + migrations 0001–0006, 0006 applied twice (idempotence),
+# Tests migrations 0006–0007 (ADR 0006) on a scratch database of a LOCAL Postgres:
+# local-shim.sql + migrations 0001–0007, 0006 and 0007 applied twice (idempotence),
 # then scripts/supabase/test-0006.sql. Refuses non-local hosts.
 #   scripts/supabase/local-pg.sh start
 #   DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres scripts/supabase/test-0006.sh
@@ -15,9 +15,10 @@ PSQL=(psql -X -q -v ON_ERROR_STOP=1)
 
 "${PSQL[@]}" "$BASE" -c "drop database if exists $DB" -c "create database $DB" >/dev/null
 "${PSQL[@]}" "$URL" -f "$ROOT/scripts/supabase/local-shim.sql" >/dev/null
-for f in "$ROOT"/supabase/migrations/000[1-6]_*.sql; do
+for f in "$ROOT"/supabase/migrations/000[1-7]_*.sql; do
   "${PSQL[@]}" "$URL" -f "$f" >/dev/null 2>&1 || { echo "test-0006: $f failed" >&2; "${PSQL[@]}" "$URL" -f "$f" >/dev/null; exit 1; }
 done
 "${PSQL[@]}" "$URL" -f "$ROOT/supabase/migrations/0006_account_insights.sql" >/dev/null 2>&1
+"${PSQL[@]}" "$URL" -f "$ROOT/supabase/migrations/0007_insights_sync_claim.sql" >/dev/null 2>&1
 "${PSQL[@]}" -A -t "$URL" -f "$ROOT/scripts/supabase/test-0006.sql"
 "${PSQL[@]}" "$BASE" -c "drop database $DB" >/dev/null

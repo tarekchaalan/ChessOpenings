@@ -2,7 +2,8 @@
  * Book matching (ADR 0006 § Book matching): walk a game through the theory
  * graph with the trainer's keys (EPD positions, normalised SAN). A move is book
  * when it is a theory or extension edge, or when it transposes into a known
- * position. Stats-only moves (to = -1) are off book.
+ * position. Stats-only moves (to = -1) are off book. A game that plays on from
+ * the last position of a theory line hasn't left book (deviatedBy "none").
  */
 import { Chess } from "chess.js";
 import { normSan, type Model } from "@/lib/openings-build/model";
@@ -83,6 +84,11 @@ export function matchBook(model: Model, sans: string[], color: Side, n = maxBook
     const here = model.nodes[node];
     const edge = here.moves.find((m) => m.to >= 0 && m.norm === played);
     const next = edge ? edge.to : i < n ? model.byEpd.get(epdOf(chess.fen())) : undefined;
+    // the end of a theory line (no continuation): playing on isn't leaving book
+    if (next === undefined && !here.moves.some((m) => m.to >= 0)) {
+      inBook = false;
+      continue;
+    }
     if (next === undefined) {
       const mover: Side = here.white ? "white" : "black";
       // ply n + 1 can only be book through a transposition; past n we stop either way

@@ -208,7 +208,7 @@ Fix / Fill / Grow recommendations, each linking into the trainer. Design:
   longest theory path, 36 plies today) plus where and how the game left book.
   Guests keep them in `localStorage`; signed-in players save them through
   `POST /api/insights/{link,sync,unlink}` into `linked_accounts` and
-  `game_summaries` (migration `0006`, owner-only RLS, cascading from the
+  `game_summaries` (migrations `0006` and `0007`, owner-only RLS, cascading from the
   profile, so unlinking or deleting the account removes them).
 - No new environment variables: the routes use the same `SUPABASE_*` server
   variables as `/api/train`. Without them, Insights works in the browser only.

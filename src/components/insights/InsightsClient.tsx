@@ -37,11 +37,13 @@ export default function InsightsClient() {
 
   // re-sync stale accounts once per visit
   const autoSynced = useRef(false);
+  const uid = user?.id ?? null;
   useEffect(() => {
-    if (!ins.loaded || autoSynced.current) return;
+    // only once the store holds this user's data (not a previous user's, mid-switch)
+    if (authLoading || !ins.loaded || ins.userId !== uid || autoSynced.current) return;
     autoSynced.current = true;
     void syncStale();
-  }, [ins.loaded]);
+  }, [authLoading, ins.loaded, ins.userId, uid]);
 
   return (
     <div className="py-8" data-testid="insights">
@@ -147,9 +149,9 @@ function GuestSavePrompt({ hasServerData }: { hasServerData: boolean }) {
         disabled={busy}
         onClick={async () => {
           setBusy(true);
-          await saveGuestToAccount();
+          const ok = await saveGuestToAccount();
           setBusy(false);
-          setGone(true);
+          if (ok) setGone(true);
         }}
         className="px-3 min-h-[36px] rounded-md bg-accent text-accent-fg text-sm font-medium disabled:opacity-50"
       >

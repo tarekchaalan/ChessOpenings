@@ -15,11 +15,12 @@ import { fetchGames, InsightsFetchError, lookupProfile, type FetchProgress, type
 import { DEFAULT_SCOPE, type ImportScope } from "./filter";
 import { EMPTY, GUEST_CAP, INSIGHTS_KEY, mergeGames, readLocal, releaseLock, takeLock, withoutPlatform, writeLocal, type InsightsData } from "./local";
 import { rematch, summarize } from "./summarize";
-import { PLATFORM_NAME, type LinkedAccount, type Platform, type Summary } from "./types";
+import { PLATFORM_NAME, PLATFORMS, type LinkedAccount, type Platform, type Summary } from "./types";
 
 export const STALE_MS = 24 * 3_600_000;
 const SYNC_CHUNK = 200;
 const SCOPE_KEY = `${INSIGHTS_KEY}.bullet`;
+const RESCAN_KEY = `${INSIGHTS_KEY}.rescan`;
 const SERVER_CAP = 1000;
 
 export interface InsightsStatus {
@@ -75,10 +76,29 @@ export function setIncludeBullet(on: boolean): void {
   try {
     if (on) storage()?.setItem(SCOPE_KEY, "1");
     else storage()?.removeItem(SCOPE_KEY);
+    // the incremental cursor skips games already inside the window: rescan it on the next import
+    if (on) storage()?.setItem(RESCAN_KEY, JSON.stringify(PLATFORMS));
   } catch {
     // a per-browser convenience only
   }
   subs.forEach((f) => f());
+}
+
+function needsRescan(platform: Platform): boolean {
+  try {
+    return (JSON.parse(storage()?.getItem(RESCAN_KEY) ?? "[]") as Platform[]).includes(platform);
+  } catch {
+    return false;
+  }
+}
+function rescanned(platform: Platform): void {
+  try {
+    const left = (JSON.parse(storage()?.getItem(RESCAN_KEY) ?? "[]") as Platform[]).filter((p) => p !== platform);
+    if (left.length) storage()?.setItem(RESCAN_KEY, JSON.stringify(left));
+    else storage()?.removeItem(RESCAN_KEY);
+  } catch {
+    // nothing to clear
+  }
 }
 
 async function token(): Promise<string | null> {
@@ -112,12 +132,19 @@ async function loadServer(): Promise<InsightsData | null> {
     accounts[a.platform] = { platform: a.platform, username: a.username, verified: a.verified, ratings: a.ratings ?? {}, linkedAt: a.linked_at, lastSyncedAt: a.last_synced_at, lastGameAt: a.last_game_at };
   }
   const games: Summary[] = [];
-  // PostgREST caps a response: page through
-  for (let from = 0; ; from += 1000) {
-    const page = await sb.from("game_summaries").select("*").order("played_at", { ascending: false }).range(from, from + 999);
+  // PostgREST caps a response (max-rows): page in a total order until a page comes back empty
+  for (let from = 0; ; ) {
+    const page = await sb
+      .from("game_summaries")
+      .select("*")
+      .order("played_at", { ascending: false })
+      .order("platform")
+      .order("game_id")
+      .range(from, from + 999);
     if (page.error) return null;
+    if (!page.data.length) break;
     games.push(...(page.data as GameRow[]).map(fromRow));
-    if (page.data.length < 1000) break;
+    from += page.data.length;
   }
   return { accounts, games };
 }
@@ -135,21 +162,25 @@ export function loadInsights(userId: string | null): Promise<void> {
 }
 
 async function load(userId: string | null): Promise<void> {
+  // a sync for the previous user must not write into this one's data
+  if (state.userId !== userId) aborter?.abort();
   set({ userId, loaded: false, status: { phase: "loading" }, serverless: false });
   let data: InsightsData = EMPTY;
+  let serverless = false;
   if (userId) {
     const server = await loadServer();
+    if (state.userId !== userId) return; // the user changed meanwhile
     if (server) data = server;
-    else set({ serverless: true });
+    else serverless = true;
   }
-  if (!userId || state.serverless) data = readLocal(storage());
-  if (state.userId !== userId) return; // the user changed meanwhile
-  set({ data, loaded: true, status: { phase: "idle" } });
-  await rematchAll();
+  if (!userId || serverless) data = readLocal(storage());
+  set({ data, serverless, loaded: true, status: { phase: "idle" } });
+  await rematchAll(userId);
 }
 
-async function rematchAll(): Promise<void> {
+async function rematchAll(userId: string | null): Promise<void> {
   const ds = await loadDataset();
+  if (state.userId !== userId) return;
   const hash = ds.outputHash ?? "";
   const stale = state.data.games.filter((g) => g.datasetHash !== hash);
   if (!stale.length) return;
@@ -159,8 +190,16 @@ async function rematchAll(): Promise<void> {
   persist({ ...state.data, games: mergeGames(state.data.games, fresh, signedIn() ? SERVER_CAP : GUEST_CAP) });
   if (signedIn()) {
     for (const p of ["lichess", "chesscom"] as const) {
+      const username = state.data.accounts[p]?.username;
       const rows = fresh.filter((g) => g.platform === p);
-      for (let i = 0; i < rows.length; i += SYNC_CHUNK) await post("sync", { platform: p, games: rows.slice(i, i + SYNC_CHUNK) });
+      if (!username) continue;
+      // `rematch` keeps last_synced_at, so the stale check still imports new games
+      for (let i = 0; i < rows.length; i += SYNC_CHUNK) {
+        if (state.userId !== userId) return;
+        const r = await post("sync", { platform: p, username, rematch: true, games: rows.slice(i, i + SYNC_CHUNK) });
+        // on any failure stop; the rows stay re-matched locally and are sent again next visit
+        if (r.status !== 200) return;
+      }
     }
   }
 }
@@ -222,44 +261,59 @@ export async function syncAccount(platform: Platform): Promise<void> {
     set({ status: { phase: "error", platform, message: `An import from ${PLATFORM_NAME[platform]} is already running in another tab.` } });
     return;
   }
-  aborter = new AbortController();
+  // everything below is for this user and this username; a sign-out, user switch or re-link ends it
+  const uid = state.userId;
+  const server = signedIn();
+  const current = () => state.userId === uid && state.data.accounts[platform]?.username === account.username;
+  const abort = () => new DOMException("superseded", "AbortError");
+  const ctrl = (aborter = new AbortController());
+  const full = needsRescan(platform);
   set({ status: { phase: "syncing", platform, progress: { read: 0, kept: 0, fraction: 0, label: "Starting" } } });
   try {
     const ds = await loadDataset();
     const model = modelOf(ds);
     const n = maxBookPly(model);
     const hash = ds.outputHash ?? "";
-    const profile = await lookupProfile(platform, account.username).catch(() => null);
+    const profile = await lookupProfile(platform, account.username, undefined, ctrl.signal).catch((e) => {
+      if ((e as Error)?.name === "AbortError") throw e;
+      return null;
+    });
     const res = await fetchGames(platform, {
       username: account.username,
       scope: readScope(),
-      since: account.lastGameAt ? new Date(account.lastGameAt) : null,
-      signal: aborter.signal,
-      onProgress: (progress) => set({ status: { phase: "syncing", platform, progress } }),
+      since: full || !account.lastGameAt ? null : new Date(account.lastGameAt),
+      signal: ctrl.signal,
+      onProgress: (progress) => current() && set({ status: { phase: "syncing", platform, progress } }),
     });
+    if (!current()) throw abort();
     const known = new Set(state.data.games.filter((g) => g.platform === platform).map((g) => g.gameId));
     const summaries = res.games.map((g) => summarize(model, g, hash, n)).filter((s): s is Summary => !!s);
     const added = summaries.filter((s) => !known.has(s.gameId)).length;
     const ratings = profile?.ratings ?? account.ratings;
-    if (signedIn()) {
+    if (server) {
       for (let i = 0; i < Math.max(1, summaries.length); i += SYNC_CHUNK) {
-        const r = await post("sync", { platform, ratings, games: summaries.slice(i, i + SYNC_CHUNK) });
+        if (!current()) throw abort();
+        const r = await post("sync", { platform, username: account.username, ratings, games: summaries.slice(i, i + SYNC_CHUNK) });
         if (r.status !== 200) throw new InsightsFetchError("bad-response", platform, String(r.json.message ?? `Couldn't save the import (${r.status}).`));
       }
     }
-    const newest = [account.lastGameAt, ...summaries.map((s) => s.playedAt)].filter((x): x is string => !!x).sort().pop() ?? null;
+    if (!current()) throw abort();
+    const times = [account.lastGameAt, ...summaries.map((s) => s.playedAt)].filter((x): x is string => !!x).map((x) => Date.parse(x));
+    const newest = times.length ? new Date(Math.max(...times)).toISOString() : null;
     const cur = state.data;
     persist({
-      accounts: { ...cur.accounts, [platform]: { ...account, ratings, lastSyncedAt: new Date().toISOString(), lastGameAt: newest } },
-      games: mergeGames(cur.games, summaries, signedIn() ? SERVER_CAP : GUEST_CAP),
+      accounts: { ...cur.accounts, [platform]: { ...cur.accounts[platform]!, ratings, lastSyncedAt: new Date().toISOString(), lastGameAt: newest } },
+      games: mergeGames(cur.games, summaries, server ? SERVER_CAP : GUEST_CAP),
     });
+    if (full) rescanned(platform);
     set({ status: { phase: "idle", last: { platform, added, skipped: res.skipped } } });
   } catch (e) {
+    if (state.userId !== uid) return; // another user's page now: say nothing
     if ((e as Error)?.name === "AbortError") set({ status: { phase: "idle" } });
     else set({ status: { phase: "error", platform, message: e instanceof InsightsFetchError ? e.message : "The import failed. Try again." } });
   } finally {
     releaseLock(st, platform, tabId);
-    aborter = null;
+    if (aborter === ctrl) aborter = null;
   }
 }
 
@@ -276,18 +330,27 @@ export function guestData(): InsightsData {
   return readLocal(storage());
 }
 
-export async function saveGuestToAccount(): Promise<void> {
+/** Upload guest insights to the signed-in account; the local copy is cleared only when every part saved. */
+export async function saveGuestToAccount(): Promise<boolean> {
   const guest = guestData();
-  if (!signedIn()) return;
+  if (!signedIn()) return false;
+  const uid = state.userId;
   for (const a of Object.values(guest.accounts)) {
     if (!a) continue;
     const ok = await linkAccount({ platform: a.platform, username: a.username, ratings: a.ratings });
-    if (!ok) return;
+    if (!ok || state.userId !== uid) return false;
     const rows = guest.games.filter((g) => g.platform === a.platform);
-    for (let i = 0; i < rows.length; i += SYNC_CHUNK) await post("sync", { platform: a.platform, ratings: a.ratings, games: rows.slice(i, i + SYNC_CHUNK) });
+    for (let i = 0; i < Math.max(1, rows.length); i += SYNC_CHUNK) {
+      const r = await post("sync", { platform: a.platform, username: a.username, ratings: a.ratings, games: rows.slice(i, i + SYNC_CHUNK) });
+      if (r.status !== 200) {
+        set({ status: { phase: "error", platform: a.platform, message: `Couldn't save your guest insights: ${String(r.json.message ?? r.status)} They're still in this browser.` } });
+        return false;
+      }
+    }
   }
   writeLocal(storage(), EMPTY);
-  await loadInsights(state.userId);
+  await loadInsights(uid);
+  return true;
 }
 
 export function clearGuest(): void {
