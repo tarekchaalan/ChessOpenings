@@ -57,7 +57,7 @@ export default function LinkedAccounts({
         Include bullet games in imports
       </label>
       <p className="text-xs text-muted">
-        Your browser fetches your public, rated games of the last 3 months (up to 200) straight from lichess.org and chess.com.
+        Your browser fetches your last 350 public, rated games straight from lichess.org and chess.com.
         {signedIn ? " We save a summary of each game's opening to your account; unlinking deletes it." : " As a guest, the summaries stay in this browser."}{" "}
         A linked username isn&apos;t verified: anyone can type a public name.
       </p>

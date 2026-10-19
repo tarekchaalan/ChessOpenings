@@ -11,9 +11,9 @@ import type { Style } from "@/lib/openings-build/hubs";
 import { bookPath } from "./book";
 import { courseLink, type TrainLink } from "./links";
 import type { Analysed, OpeningRow } from "./aggregate";
-import type { Band } from "./bands";
+import { bandSource, type Band } from "./bands";
 import { BAND_LEVELS, EARLY_PLY, FILL, FIX, GROW, MAX_PER_KIND, MIN_GAMES } from "./weights";
-import { PLATFORM_NAME, type Side } from "./types";
+import type { Side } from "./types";
 
 export type RecKind = "fix" | "fill" | "grow";
 
@@ -178,7 +178,7 @@ export function growRecs(ds: Dataset, games: Analysed[], band: Band | null): Rec
       if (!link) return;
       const affinity = style.known ? h.tags.reduce((a, t) => a + (style.shares[t] ?? 0), 0) : 0;
       const score = GROW.w.common * (1 - rank / set.length) + GROW.w.style * affinity + GROW.w.level * (h.level === levels[0] ? 1 : 0);
-      const where = band ? `Common at your level (${PLATFORM_NAME[band.platform]} ${band.timeClass} ${band.rating}${band.provisional ? ", provisional" : ""})` : `A common course for ${cap(color)}`;
+      const where = band ? `Common at your level (${bandSource(band)})` : `A common course for ${cap(color)}`;
       const styled = style.known && top && h.tags.includes(top[0]) ? ` and close to how you play: ${pct(top[1])} of your games as ${cap(color)} are in ${top[0]} openings` : "";
       scored.push({ kind: "grow", color, title: link.courseName, reason: `${where}${styled}.`, score, link, hub: h.slug });
     });

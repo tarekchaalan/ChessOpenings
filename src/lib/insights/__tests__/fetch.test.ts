@@ -53,7 +53,9 @@ describe("Lichess import", () => {
     expect(m.calls).toHaveLength(1);
     const url = new URL(m.calls[0].url);
     expect(url.pathname).toBe("/api/games/user/Zhigalko_Sergei");
-    expect(Object.fromEntries(url.searchParams)).toMatchObject({ max: "200", rated: "true", perfType: "rapid,blitz,classical", opening: "true", evals: "true", moves: "true" });
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({ max: "350", rated: "true", perfType: "rapid,blitz,classical", opening: "true", evals: "true", moves: "true" });
+    // the last 350 games however old: no time window on a first import
+    expect(url.searchParams.has("since")).toBe(false);
     expect((m.calls[0].init?.headers as Record<string, string>).Accept).toBe("application/x-ndjson");
     expect(res.games.length).toBe(15);
     expect(progress[progress.length - 1]).toBe(15);
@@ -108,15 +110,24 @@ describe("Chess.com import", () => {
     return new Response(fixture("chesscom-404.json"), { status: 404 });
   };
 
-  it("archives, then the window's months newest first, one request at a time", async () => {
+  it("archives, then months newest first, one request at a time, until 350 games or maxMonths", async () => {
     const m = mock(route);
     const res = await fetchGames("chesscom", { username: "Hikaru", scope: DEFAULT_SCOPE, since: null, now: NOW }, m.deps);
-    expect(m.calls.map((c) => c.url.replace("https://api.chess.com/pub/player/hikaru", ""))).toEqual(["/games/archives", "/games/2026/10", "/games/2026/09", "/games/2026/08", "/games/2026/07"]);
+    const paths = m.calls.map((c) => c.url.replace("https://api.chess.com/pub/player/hikaru", ""));
+    // the fixture has fewer than 350 games, so the walk goes back the full maxMonths
+    expect(paths[0]).toBe("/games/archives");
+    expect(paths.slice(1, 4)).toEqual(["/games/2026/10", "/games/2026/09", "/games/2026/08"]);
+    expect(paths.length - 1).toBe(Math.min(DEFAULT_SCOPE.maxMonths, (JSON.parse(fixture("chesscom-archives.json")).archives as string[]).length));
     expect(m.maxInFlight()).toBe(1);
-    // 2026-09 rated blitz/rapid standard games in the fixture; older ones fall outside the window
-    expect(res.games.every((g) => g.playedAt >= "2026-07-19")).toBe(true);
     expect(res.games.length).toBeGreaterThan(0);
     expect(res.skipped["time-class"]).toBeGreaterThan(0);
+  });
+
+  it("stops as soon as it has maxGames games", async () => {
+    const m = mock(route);
+    const res = await fetchGames("chesscom", { username: "Hikaru", scope: { ...DEFAULT_SCOPE, maxGames: 3 }, since: null, now: NOW }, m.deps);
+    expect(m.calls.map((c) => c.url.replace("https://api.chess.com/pub/player/hikaru", ""))).toEqual(["/games/archives", "/games/2026/10", "/games/2026/09"]);
+    expect(res.games).toHaveLength(3);
   });
 
   it("lookup: profile + stats; unknown user → not-found", async () => {

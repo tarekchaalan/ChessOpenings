@@ -346,3 +346,13 @@ An adversarial review of the merged code found 12 issues; all are fixed:
 - **Reads.** Paging uses a total order (`played_at`, `platform`, `game_id`) and runs until an empty page, so a lower `max-rows` setting can't cut it short.
 
 **Known and accepted:** after more than 200 new games, an incremental import keeps the newest 200. That is the spec's window ("last 3 months or 200 games, whichever is smaller"), so older games in between are out of scope by definition.
+
+## Amendment (owner, 2026-10-19): the last 350 games
+
+The import window changed from "last 3 months or 200 games, whichever is smaller" to **the newest 350 games, however old** (`DEFAULT_SCOPE` in `filter.ts`: `maxGames: 350`). The sections above describe the original window; where they differ, this one applies.
+
+- **Lichess:** `max=350`, and no `since` on a first import (or a rescan after turning bullet on). Incremental syncs still send `since = lastGameAt + 1 ms`.
+- **Chess.com:** archive months newest first, one request at a time, stopping at 350 kept games or after `maxMonths` = 60 months (5 years). The cap stops a player with few games from causing hundreds of requests.
+- **Unchanged:** the server takes up to 200 summaries per sync request (the client sends 350 in two chunks), keeps 1,000 per platform, and guests keep 400 per platform in this browser. The 30-syncs-an-hour limit has room for the extra request.
+- An incremental import after more than 350 new games keeps the newest 350 (previously 200).
+

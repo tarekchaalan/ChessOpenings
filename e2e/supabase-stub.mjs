@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * A stand-in for Supabase in the e2e suite: a LOCAL Postgres with the real
- * migrations (0001–0008), behind just enough of PostgREST and GoTrue for the
+ * migrations (0001–0009), behind just enough of PostgREST and GoTrue for the
  * browser client (supabase-js). Signed-in tests therefore run against the
  * real RLS policies and SECURITY DEFINER functions, not mocks.
  *
@@ -123,7 +123,16 @@ truncate auth.users cascade;
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000a1', 'alice@e2e.test', '{"username":"alice"}'),
   ('00000000-0000-0000-0000-0000000000b2', 'bob@e2e.test', '{"username":"bob"}'),
-  ('00000000-0000-0000-0000-0000000000c3', 'carol@e2e.test', '{"username":"carol"}');
+  ('00000000-0000-0000-0000-0000000000c3', 'carol@e2e.test', '{"username":"carol"}'),
+  -- dave, erin and frank have no setup yet: the onboarding specs use them
+  ('00000000-0000-0000-0000-0000000000d4', 'dave@e2e.test', '{"username":"dave"}'),
+  ('00000000-0000-0000-0000-0000000000e5', 'erin@e2e.test', '{"username":"erin"}'),
+  ('00000000-0000-0000-0000-0000000000f6', 'frank@e2e.test', '{"username":"frank"}');
+-- alice, bob and carol finished setup (ADR 0008), so the setup modal doesn't cover the friends specs
+insert into player_setup (user_id, completed_at, self_level, estimated_elo, estimate) values
+  ('00000000-0000-0000-0000-0000000000a1', now(), null, 1350, '{"source":"ratings"}'),
+  ('00000000-0000-0000-0000-0000000000b2', now(), null, 1500, '{"source":"ratings"}'),
+  ('00000000-0000-0000-0000-0000000000c3', now(), 'casual', 1200, '{"source":"self"}');
 update profiles set rating = 1210, attempts = 40, correct = 30 where username = 'alice';
 update profiles set rating = 1340, attempts = 60, correct = 50 where username = 'bob';
 update profiles set rating = 990, attempts = 12, correct = 6 where username = 'carol';

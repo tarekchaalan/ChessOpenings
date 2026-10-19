@@ -100,15 +100,17 @@ describe("Chess.com", () => {
     expect(games.filter((g) => !isSkip(g) && !inScope(g, withBullet))).toHaveLength(14);
   });
 
-  it("window: newest first, after the window start, at most maxGames", () => {
+  it("window: the newest maxGames however old, after the incremental cursor", () => {
+    expect(DEFAULT_SCOPE.maxGames).toBe(350);
     const ok = games.filter((g): g is NormalGame => !isSkip(g));
-    const now = new Date("2026-10-19T12:00:00Z");
-    const w = applyWindow(ok, { ...DEFAULT_SCOPE, maxGames: 5 }, null, now);
+    // no time window: every game counts without a cursor
+    expect(applyWindow(ok, DEFAULT_SCOPE, null)).toHaveLength(ok.length);
+    const w = applyWindow(ok, { ...DEFAULT_SCOPE, maxGames: 5 }, null);
     expect(w).toHaveLength(5);
     expect(w.map((g) => g.playedAt)).toEqual([...w.map((g) => g.playedAt)].sort().reverse());
     // since cursor: only games after it
     const since = new Date(w[2].playedAt);
-    expect(applyWindow(ok, DEFAULT_SCOPE, since, now).every((g) => Date.parse(g.playedAt) > since.getTime())).toBe(true);
+    expect(applyWindow(ok, DEFAULT_SCOPE, since).every((g) => Date.parse(g.playedAt) > since.getTime())).toBe(true);
   });
 
   it("ratings from /stats; daily is ignored", () => {

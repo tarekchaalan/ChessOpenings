@@ -18,6 +18,8 @@ import { allCards, allCourseProgress, overridesFor, useProgressVersion } from "@
 import { tierLines } from "@/lib/trainer/plan";
 import type { Dataset } from "@/lib/openings";
 import type { Level } from "@/lib/openings-build/catalog";
+import { usePlayerLevel } from "@/lib/setup/client";
+import { SuggestedForLevel } from "@/components/setup/LevelCards";
 import type { Style } from "@/lib/openings-build/hubs";
 
 const STYLES: Style[] = ["gambit", "solid", "sharp", "system"];
@@ -42,6 +44,7 @@ function Catalog({ ds }: { ds: Dataset }) {
   const [against, setAgainst] = useState<Set<string>>(new Set());
   const [styles, setStyles] = useState<Set<Style>>(new Set());
   const [levels, setLevels] = useState<Set<Level>>(new Set());
+  const { level } = usePlayerLevel();
   const { entry, seen, dismiss } = useLatestChanges();
   const hubs = ds.raw!.catalog!.hubs;
 
@@ -139,6 +142,11 @@ function Catalog({ ds }: { ds: Dataset }) {
       ) : (
         <>
           <ContinueRow ds={ds} />
+          {level && !filtering && (
+            <div className="mt-6">
+              <SuggestedForLevel ds={ds} level={level} sides={[side]} title="For your level" />
+            </div>
+          )}
           {featured.length > 0 && (
             <Section title="Featured">
               <Grid>{featured.map(card)}</Grid>

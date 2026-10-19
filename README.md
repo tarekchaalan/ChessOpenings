@@ -72,7 +72,11 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
      it prints before confirming, since it pushes every `[auth]` setting):
      `RESEND_API_KEY=… supabase config push`
 6. Account deletion (Settings → Delete account) calls `DELETE /api/account`,
-   which needs the server variables below (`SUPABASE_SECRET_KEY` etc.).
+   which needs the server variables below (`SUPABASE_SECRET_KEY` etc.). It
+   deletes the auth user; every user table cascades from it.
+   `scripts/supabase/test-deletion.sh` proves it on a local Postgres: it fills
+   every user table for two players, deletes one, and scans every uuid and
+   text column for the deleted id.
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
 and `seed/*.sql` automatically. Migrating an existing v1 project (user data):
@@ -181,10 +185,16 @@ src/lib/progress/            progress stores: localStorage + Supabase
 src/components/              board, explorer, learn, quiz, dashboard, auth
 supabase/migrations/         schema, RLS, RPCs
 src/lib/friends/             friends: visibility, feed, compare, challenge, RPC client
+src/lib/rating/              estimated Elo from linked ratings, levels and what they set
+src/lib/setup/               first-login setup state (get_setup / save_setup)
 supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ```
 
 ## Notes
+
+- **Analytics:** Vercel Web Analytics (`@vercel/analytics`, the `<Analytics />`
+  component in `src/app/layout.tsx`). Turn it on in the Vercel project
+  (Analytics tab); it reports page views only on Vercel deployments.
 
 - Without Supabase env vars the app runs in guest-only mode (no leaderboard).
 - The explorer optionally augments stats with the public Lichess masters API
@@ -195,8 +205,8 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ## Insights (Chess.com + Lichess)
 
 `/insights` (and Settings → Account) links a Chess.com and/or Lichess
-username, imports the last 3 months of rated standard games (up to 200;
-rapid, blitz and classical, bullet optional) and shows where your openings
+username, imports the last 350 rated standard games, however old (rapid,
+blitz and classical, bullet optional) and shows where your openings
 leave book, repeat mistakes with an engine verdict, results by opening, and
 Fix / Fill / Grow recommendations, each linking into the trainer. Design:
 `docs/design/0006-account-insights.md`.
@@ -216,6 +226,20 @@ Fix / Fill / Grow recommendations, each linking into the trainer. Design:
 - `npx tsx scripts/insights/live-check.ts [lichessUser] [chesscomUser]` runs a
   live import against real accounts (not part of `npm test`, which only uses
   captured fixtures).
+
+## First-login setup and estimated Elo
+
+On a player's first signed-in visit (right after the email link verifies the
+account), a modal asks for their Lichess and Chess.com usernames, checks them
+live, and shows an **estimated Elo** with what it's based on. Ratings with
+fewer than 20 games don't count (a new Lichess account sits at "1500?"); with
+nothing reliable, the player picks their level instead. The estimate sets the
+suggested openings (dashboard "Start here", catalog "For your level"), where a
+course's depth starts, new lines a day, and Insights' level until enough games
+are imported. The leaderboard rating stays separate and earned. Skip or re-run
+from Settings → Account. Design: `docs/design/0008-player-setup.md`; migration
+`0009_player_setup.sql`; tests `src/lib/rating/__tests__`,
+`scripts/supabase/test-0009.sh`, `e2e/onboarding.spec.ts`.
 
 ## Friends
 

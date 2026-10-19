@@ -2,17 +2,31 @@
  * Rating bands per platform and time class (ADR 0006). Lichess and Chess.com
  * ratings are banded on their own scales; nothing converts between them.
  */
+import { levelOf } from "@/lib/rating/level";
 import { BAND_EDGES, BAND_NAMES } from "./weights";
 import type { Platform, Ratings, Summary, TimeClass } from "./types";
 
 export interface Band {
   band: number;
   name: (typeof BAND_NAMES)[number];
-  platform: Platform;
-  timeClass: TimeClass;
+  /** null: from the estimated Elo (ADR 0008), not one platform's rating */
+  platform: Platform | null;
+  timeClass: TimeClass | null;
   rating: number;
   provisional: boolean;
 }
+
+/** The band when there are no imported games to rank yet: the estimated Elo's level (ADR 0008). */
+export function bandFromEstimate(elo: number): Band {
+  const lv = levelOf(elo);
+  return { band: lv.band, name: lv.name, platform: null, timeClass: null, rating: elo, provisional: false };
+}
+
+/** "Lichess blitz 1834, provisional" or "estimated Elo ≈ 1450" */
+export function bandSource(b: Band): string {
+  return b.platform ? `${PLATFORM_LABEL[b.platform]} ${b.timeClass} ${b.rating}${b.provisional ? ", provisional" : ""}` : `estimated Elo ≈ ${b.rating}`;
+}
+const PLATFORM_LABEL: Record<Platform, string> = { lichess: "Lichess", chesscom: "Chess.com" };
 
 export function bandOf(platform: Platform, rating: number): number {
   const edges = BAND_EDGES[platform];

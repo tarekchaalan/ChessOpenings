@@ -22,6 +22,8 @@ import type { Dataset } from "@/lib/openings";
 import { useInsights } from "@/lib/insights/client";
 import { analyse as analyseGames, repeatDeviations } from "@/lib/insights/aggregate";
 import { knownVerdicts } from "@/lib/insights/verdicts";
+import { usePlayerLevel } from "@/lib/setup/client";
+import { LevelCard, SuggestedForLevel } from "@/components/setup/LevelCards";
 
 const DAY = 86400_000;
 
@@ -31,6 +33,7 @@ export default function Dashboard() {
   const hydrated = useHydrated();
   const { user, username, configured, loading: authLoading } = useAuth();
   const { entry } = useLatestChanges();
+  const { estimate, level } = usePlayerLevel();
 
   if (!ds || !hydrated) {
     return (
@@ -81,7 +84,13 @@ export default function Dashboard() {
         <Stat icon={<BookOpen size={16} />} label="positions learned" value={String(cards.length)} />
       </div>
 
-      {!started && (
+      {level && (
+        <div className="mb-8">
+          <SuggestedForLevel ds={ds} level={level} title={started ? "Suggested for your level" : "Start here"} />
+        </div>
+      )}
+
+      {!started && !level && (
         <div className="mb-8 rounded-xl border border-edge bg-surface p-5">
           <h2 className="font-medium">Start with an opening</h2>
           <p className="text-sm text-muted mt-1">Each opening has courses for White and Black. Learn a line, recall it once, and Review brings it back before you forget.</p>
@@ -102,6 +111,7 @@ export default function Dashboard() {
           <RepeatOffenders ds={ds} cards={cards} />
         </div>
         <aside className="space-y-4">
+          {estimate && level && <LevelCard estimate={estimate} level={level} />}
           <InsightsCard ds={ds} userId={user?.id ?? null} authLoading={authLoading} />
           {entry && (
             <section className="rounded-lg border border-edge bg-surface p-4" data-testid="data-news">

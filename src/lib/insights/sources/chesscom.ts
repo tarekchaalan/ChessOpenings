@@ -89,7 +89,8 @@ export function chesscomRatings(stats: Record<string, ChesscomStat | unknown>): 
 
 /**
  * Monthly archive URLs to fetch, newest first: every month from the month of
- * `since` (or `now − months`, whichever is later) up to now.
+ * `since` (or `now − months`, whichever is later) up to now. The caller stops
+ * early once it has enough games.
  */
 export function monthsToFetch(archives: string[], since: Date | null, now: Date, months: number): string[] {
   const floor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
