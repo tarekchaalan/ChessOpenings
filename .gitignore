@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -49,3 +50,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /public/engine/
+
+# supabase CLI local state (linked project, pooler host, versions)
+supabase/.temp/
+supabase/.branches/

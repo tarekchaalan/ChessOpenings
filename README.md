@@ -21,8 +21,10 @@ queue per opening.
 
 - **Next.js 16 / React 19 / TypeScript / Tailwind 4**
 - **chess.js** as the rules oracle + **chessground** (lichess's board)
-- **Supabase** — Auth (email + password, magic links), Postgres with
-  row-level security, and SECURITY DEFINER RPCs for the anti-forge quiz loop
+- **Supabase** — Auth (email + password, email links with a one-time code,
+  password reset, email change, account deletion), Postgres with row-level
+  security, and SECURITY DEFINER RPCs for the anti-forge quiz loop
+- **Resend** — auth email over SMTP from `do-not-reply@tarekchaalan.com`
 - Opening data: **lichess-org/chess-openings** (ECO names, pinned commit) +
   the **lichess broadcast database** (professional OTB games) for real move
   frequencies and win rates
@@ -59,10 +61,16 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
      Resend key). Supabase's built-in mailer only delivers to the project's
      team members, a few emails an hour, so other players would never receive
      sign-up, magic-link or reset emails.
-   - **Email templates**: paste `supabase/templates/*.html` (confirm signup,
+   - **Email templates**: `supabase/templates/*.html` (confirm signup,
      magic link, reset password, change email). They link to
      `/auth/callback?token_hash=…`, which works on any device; the default
      templates' PKCE links only work in the browser that asked for the email.
+     They use the site's palette (light, plus dark for clients that support
+     it) and load the logo from `{{ .SiteURL }}/brand/logo-96.png`
+     (`public/brand/`), so deploy before pushing them.
+   - From the CLI (linked project, logged in as its owner; review the diff
+     it prints before confirming, since it pushes every `[auth]` setting):
+     `RESEND_API_KEY=… supabase config push`
 6. Account deletion (Settings → Delete account) calls `DELETE /api/account`,
    which needs the server variables below (`SUPABASE_SECRET_KEY` etc.).
 
@@ -185,8 +193,12 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 
 ## Engine
 
-Stockfish 19 (lite, single-threaded WASM, from the [`stockfish`](https://github.com/nmrugg/stockfish.js) npm package) powers the trainer's eval bar (Stats tab, off by default) and the engine verdict and refutation for off-book mistakes. `predev`/`prebuild` copy it into `public/engine/` (gitignored, 1.85 MB, 1.2 MB gzipped). The browser loads it in a Web Worker only on first use. Without it, both features stay hidden.
+Stockfish 19 (lite, single-threaded WASM, from the [`stockfish`](https://github.com/nmrugg/stockfish.js) npm package) powers the trainer's eval bar (beside the board, on by default; E or the toolbar toggles it) and the engine verdict and refutation for off-book mistakes. `predev`/`prebuild` copy it into `public/engine/` (gitignored, 1.85 MB, 1.2 MB gzipped). The browser loads it in a Web Worker only on first use. Without it, both features stay hidden.
 
 ## Third-party licences
 
 [chessground](https://github.com/lichess-org/chessground) and [Stockfish](https://github.com/official-stockfish/Stockfish) (via [stockfish.js](https://github.com/nmrugg/stockfish.js)) are GPL-3.0. Distributing the app with them carries the GPL-3.0's obligations. Stockfish's licence ships next to the engine as `/engine/COPYING.txt`, and the corresponding source for both is linked above.
+
+## Brand
+
+The logo is shared with the Chess Analysis iOS app: the cburnett knight (Colin M.L. Burnett, GPL-2.0-or-later, the same piece set chessground draws) in forest green on a charcoal tile. `src/components/Logo.tsx` and `src/app/icon.svg` draw it as SVG; `src/app/apple-icon.png`, `public/brand/logo-96.png` (emails) and `docs/logo.png` (this README) are renders of the app icon. The theme tokens in `src/app/globals.css` take their accent and dark-theme neutrals from it; every text pair is WCAG AA.
