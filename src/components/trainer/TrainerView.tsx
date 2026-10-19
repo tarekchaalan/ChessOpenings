@@ -13,7 +13,7 @@ import Board from "@/components/Board";
 import WinBar from "@/components/WinBar";
 import CoachFeed from "./CoachFeed";
 import { getPrefs, usePrefs } from "@/lib/prefs";
-import { useMediaQuery } from "@/lib/hooks";
+import { useReducedMotion } from "@/lib/motion";
 import { playMoveSound } from "@/lib/sound";
 import { arrowShapes, badgeShape } from "@/lib/coach/brushes";
 import { courseHref, findSystem, hubHref, loadCourse, modelOf, parseCourseId, systemsFor, type Course, type RawHubSummary, type RawSystemSummary } from "@/lib/courses-client";
@@ -66,8 +66,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const line = course.lines[run.line];
   useProgressVersion(); // line ✓ marks and branch dots follow the store
 
-  const osReduced = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const reduced = prefs.motion === "reduce" || (prefs.motion === "system" && osReduced);
+  const reduced = useReducedMotion();
 
   const [s] = useState(() => {
     const p = getPrefs();
@@ -113,6 +112,22 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   });
   const [ver, setVer] = useState(0);
   const bump = useCallback(() => setVer((v) => v + 1), []);
+  useEffect(() => {
+    if (!performance.getEntriesByName("cot:move", "mark").length) return;
+    // rAF + a macrotask ≈ just after the frame that shows the feedback
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const id = requestAnimationFrame(() => {
+      t = setTimeout(() => {
+        if (!performance.getEntriesByName("cot:move", "mark").length) return;
+        performance.measure("cot:move-feedback", "cot:move");
+        performance.clearMarks("cot:move");
+      }, 0);
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      clearTimeout(t);
+    };
+  }, [ver]);
   const [view, setView] = useState<{ ply: number; id: number | null } | null>(null);
   const [tab, setTab] = useState<"coach" | "lines" | "stats">("coach");
   const [flipped, setFlipped] = useState(false);
@@ -182,8 +197,10 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const playMove = useCallback(
     (san: string): string => {
       if (!live) return "ignored";
+      performance.mark("cot:move"); // move → feedback budget (§3, ≤ 50 ms), measured after the next paint
       const ply = s.ply;
       const r = s.play(san);
+      if (r === "ignored" || r === "illegal") performance.clearMarks("cot:move");
       if (r === "correct" || r === "wrong" || r === "soft") {
         playMoveSound(san, true);
         setAnnounce(sanToWords(san, moverColor(ply)) + (r === "correct" ? ", correct" : r === "soft" ? ", also theory" : ", not the book move"));
@@ -649,7 +666,7 @@ function MoveChips({
       })}
       {s.wrong && (
         <li>
-          <span className="px-1.5 py-0.5 rounded bg-danger/15 text-danger line-through" data-testid="wrong-chip">{s.wrong.san}</span>
+          <span className="px-1.5 py-0.5 rounded bg-danger/15 text-danger-ink line-through" data-testid="wrong-chip">{s.wrong.san}</span>
         </li>
       )}
     </ol>

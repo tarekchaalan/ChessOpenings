@@ -34,9 +34,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npm run dev -- -p ${PORT}`,
+    // E2E_PROD=1: a production build (the perf budgets are measured there; dev React is several times slower)
+    command: process.env.E2E_PROD ? `npm run build && npx next start -p ${PORT}` : `npm run dev -- -p ${PORT}`,
     url: `http://localhost:${PORT}/data/openings.v2.meta.json`,
-    timeout: 180_000,
+    timeout: process.env.E2E_PROD ? 900_000 : 180_000,
     reuseExistingServer: false,
     stdout: "pipe",
     stderr: "pipe",

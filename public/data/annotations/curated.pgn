@@ -370,3 +370,26 @@
 [Annotator "chess-openings-trainer v1"]
 
 1. Nf3 d5 2. g3 { The King's Indian Attack setup: White fianchettoes and plays the same healthy structure against anything Black chooses. } *
+
+% Phase 6: authored end-of-line plans ([%plan] + [%cal] arrows), shown on the
+% trainer's "Line complete" card. Keyed by the line's last move.
+
+[Event "Plan: Najdorf, 6.Bg5 main line"]
+[Annotator "chess-openings-trainer"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Bg5 e6 7. f4 Be7 8. Qf3 Qc7 9. O-O-O Nbd7 10. g4 b5 11. Bxf6 Nxf6 { Recapturing with the knight keeps watch over e4 and d5. [%plan Opposite-side castling, so it is a race. Black throws the b-pawn forward with ...b4 to drive the c3-knight away and adds ...Bb7 against e4; White answers with g5 to evict the f6-knight and f5 to pry open the kingside.] [%cal Gb5b4,Gc8b7,Rg4g5] } *
+
+[Event "Plan: Caro-Kann, Classical with 6.h4"]
+[Annotator "chess-openings-trainer"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7 8. h5 Bh7 9. Bd3 Bxd3 10. Qxd3 e6 11. Bd2 Ngf6 12. O-O-O Be7 { [%plan Black finishes development with ...O-O (or ...Qc7 and a later ...O-O-O) and then challenges the centre with ...c5. White uses the space the h5-pawn grabs: Kb1, Ne4 and Qe2 are the usual moves.] [%cal Gc6c5,Ge8g8] } *
+
+[Event "Plan: QGD Exchange, Nge2 setup"]
+[Annotator "chess-openings-trainer"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. cxd5 exd5 5. Bg5 c6 6. e3 Be7 7. Bd3 Nbd7 8. Nge2 O-O 9. O-O Re8 10. Qc2 Nf8 { [%plan A Carlsbad structure. With the knight on e2, White's main idea is f3 and e4, a central break (Botvinnik's plan); the minority attack with Rab1 and b4-b5 is the other. Black reroutes the knight to g6 or e6: against the minority attack it looks for kingside play with ...Ng6, ...Bd6 and ...Ne4, against f3 and e4 it aims to keep its pieces active and hit the centre.] [%cal Gf8g6,Rf2f3,Re3e4] } *
+
+[Event "Plan: Italian, Canal Variation"]
+[Annotator "chess-openings-trainer"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. d3 Bc5 5. Nc3 d6 6. Bg5 { [%plan The Canal Variation: White pins the f6-knight and follows up with Nd5 to pile on f6. After ...h6 Bxf6 Qxf6, Nd5 hits the queen and c7, and c3 with d4 can follow. Black usually breaks the pin at once with ...h6.] [%cal Gc3d5,Rh7h6] } *

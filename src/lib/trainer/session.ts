@@ -716,7 +716,10 @@ export class TrainerSession {
       .slice(0, 3)
       .map((m) => ({ san: moveLabel(this.ply, m.san), pct: nd.games ? m.games / nd.games : 0 }));
     const lastSan = line.sans[this.ply - 1];
-    const plan = this.ply > 0 ? noteFor(annotations, model.nodes[line.nodes[this.ply - 1]].epd, lastSan)?.plan : undefined;
+    const endNote = this.ply > 0 ? noteFor(annotations, model.nodes[line.nodes[this.ply - 1]].epd, lastSan) : undefined;
+    const plan = endNote?.plan;
+    // authored plans come with their arrows ([%cal] on the same note): shown with the end card
+    const planArrows = plan ? shapesToArrows(endNote?.shapes ?? []) : [];
     const plies = this.learnerPlies(this.ctx.startPly, this.endPly).length;
     this.post({
       kind: "complete",
@@ -729,7 +732,9 @@ export class TrainerSession {
             ? "Drill line done."
             : `${plies} move${plies === 1 ? "" : "s"} reviewed.`,
       complete: { moves: formatLine(line.sans.slice(0, this.endPly)), learned: this.learned, next, ...(plan ? { plan } : {}) },
+      ...(planArrows.length ? { arrows: planArrows } : {}),
     });
+    if (planArrows.length) this.arrows = planArrows;
   }
 
   /** A plain coach note at the live ply (e.g. "4.Bxc6 is now your move"). */

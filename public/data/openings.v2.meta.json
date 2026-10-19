@@ -1,10 +1,10 @@
 {
   "format": "chess-openings-trainer/meta@2",
   "lib": "2.0.0-phase2",
-  "inputHash": "3f36099daa072e1530ac83169e0feba4b236cc354ec67cc933a662c15568e08e",
-  "outputHash": "e49997fa56ed8c42fe59531ad93c525eecc7080499df9bbbb7110fd662d5d18e",
-  "bytes": 2270913,
-  "gzipBytes": 400884,
+  "inputHash": "ea8778c415f3887dabee3b564190d0ce4224ca8fe79738c667a9c026aeafe7ad",
+  "outputHash": "8e645df8029288c9031df362760accb19faf377bf0da3b460916f3ef46a2a750",
+  "bytes": 2272358,
+  "gzipBytes": 401570,
   "statsSha": "0d4cc77060341885f464d79c1879a01c901f2f93f6cf7a9cff54f1007eeb8284",
   "counts": {
     "files": 5,
@@ -13,10 +13,39 @@
     "theoryMoves": 8192,
     "aliases": 0,
     "errors": 0,
-    "warnings": 0,
+    "warnings": 4,
     "statsCoveredPositions": 3465
   },
-  "issues": [],
+  "issues": [
+    {
+      "level": "warning",
+      "file": "annotations/curated.pgn",
+      "line": 377,
+      "token": "g4",
+      "message": "annotated move g4 is not in the theory graph (shown only via extension)"
+    },
+    {
+      "level": "warning",
+      "file": "annotations/curated.pgn",
+      "line": 377,
+      "token": "b5",
+      "message": "annotated move b5 is not in the theory graph (shown only via extension)"
+    },
+    {
+      "level": "warning",
+      "file": "annotations/curated.pgn",
+      "line": 377,
+      "token": "Bxf6",
+      "message": "annotated move Bxf6 is not in the theory graph (shown only via extension)"
+    },
+    {
+      "level": "warning",
+      "file": "annotations/curated.pgn",
+      "line": 377,
+      "token": "Nxf6",
+      "message": "annotated move Nxf6 is not in the theory graph (shown only via extension)"
+    }
+  ],
   "unassigned": [],
   "coverage": {
     "rows": 3865,
@@ -1016,16 +1045,16 @@
     }
   ],
   "timingsMs": {
-    "hash": 2,
-    "parse": 145,
-    "replay": 1138,
-    "graph": 72,
-    "encode": 123,
-    "hubs": 327,
-    "extension": 878,
-    "courses": 1854,
-    "annotations": 52,
-    "serialize": 158,
-    "diff": 161
+    "hash": 1,
+    "parse": 199,
+    "replay": 1232,
+    "graph": 15,
+    "encode": 145,
+    "hubs": 258,
+    "extension": 378,
+    "courses": 1216,
+    "annotations": 31,
+    "serialize": 149,
+    "diff": 236
   }
 }

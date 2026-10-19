@@ -18,8 +18,12 @@
   --accent-fg: #ffffff;
   --danger: #c2410c;
   --gold: #b98a1c;
+  /* text on light surfaces (WCAG AA): the base gold/danger are for icons and borders */
+  --gold-ink: #8a6512;
+  --danger-ink: #9a3412;
   --bar-white: #f4f4f2;
   --bar-draw: #b3aea3;
+  --bar-draw-fg: #1c1b18;
   --bar-black: #33312d;
 }
 
@@ -29,14 +33,17 @@
   --surface-2: #23272f;
   --border: #2e333c;
   --foreground: #e8e6e1;
-  --muted: #9a968c;
+  --muted: #a3a095;
   --accent: #2fbd7f;
   --accent-soft: #17362a;
   --accent-fg: #0c1210;
   --danger: #f97316;
   --gold: #e3b341;
+  --gold-ink: #e3b341;
+  --danger-ink: #f97316;
   --bar-white: #d8d6d0;
   --bar-draw: #6b6860;
+  --bar-draw-fg: #ffffff;
   --bar-black: #08090b;
 }
 
@@ -52,6 +59,8 @@
   --color-accent-fg: var(--accent-fg);
   --color-danger: var(--danger);
   --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-danger-ink: var(--danger-ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -123,7 +132,7 @@ coords {
   overflow: hidden;
 }
 .winbar .w { background: var(--bar-white); color: #1c1b18; }
-.winbar .d { background: var(--bar-draw); color: #fff; }
+.winbar .d { background: var(--bar-draw); color: var(--bar-draw-fg); }
 .winbar .b { background: var(--bar-black); color: #e8e6e1; }
 
 /* subtle scrollbars for panels */
@@ -211,3 +220,33 @@ cg-board square.sq-authored-blue { background: rgb(0 48 136 / 0.32); }
 .board-swatch.board-theme-brown { background-image: repeating-conic-gradient(#b58863 0% 25%, #f0d9b5 0% 50%); background-size: 50% 50%; }
 .board-swatch { background-size: 50% 50% !important; }
 .trainer { overflow-x: clip; }
+
+/* catalog: off-screen hub cards skip layout and paint (113 mini boards × 32 pieces).
+   content-visibility clips paint to its box, so it sits on a wrapper padded for the
+   card's focus ring and its "+N new lines" badge (top: -8px); margins cancel the padding */
+.hub-cell { content-visibility: auto; contain-intrinsic-block-size: auto 150px; padding: 12px 6px 6px; margin: -12px -6px -6px; }
+
+/* reduced motion from Settings (or the OS via "system"): <MotionSync/> sets data-motion */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── Opening map: ECO volume fills (text stays ≥ AA on every fill) ── */
+:root { --eco-a: #cfe3f5; --eco-b: #f6d5c8; --eco-c: #d5ecd5; --eco-d: #e3d7f1; --eco-e: #f3e7b8; --eco-none: #e9e7e1; --map-ink: #1c1b18; }
+.dark { --eco-a: #1f3b57; --eco-b: #5a2f22; --eco-c: #1f4a2c; --eco-d: #3d2f57; --eco-e: #544817; --eco-none: #2e333c; --map-ink: #e8e6e1; }
+.map-cell rect, .map-swatch { fill: var(--eco-none); background: var(--eco-none); }
+[data-volume="A"] rect, .map-swatch[data-volume="A"] { fill: var(--eco-a); background: var(--eco-a); }
+[data-volume="B"] rect, .map-swatch[data-volume="B"] { fill: var(--eco-b); background: var(--eco-b); }
+[data-volume="C"] rect, .map-swatch[data-volume="C"] { fill: var(--eco-c); background: var(--eco-c); }
+[data-volume="D"] rect, .map-swatch[data-volume="D"] { fill: var(--eco-d); background: var(--eco-d); }
+[data-volume="E"] rect, .map-swatch[data-volume="E"] { fill: var(--eco-e); background: var(--eco-e); }
+.map-cell:hover rect { stroke: var(--accent); stroke-width: 2; }
+.map-cell text { fill: var(--map-ink); pointer-events: none; }
+.map-san { font: 600 13px var(--font-geist-mono, monospace); }
+.map-name { font: 11px var(--font-geist-sans, sans-serif); }
+.map-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }

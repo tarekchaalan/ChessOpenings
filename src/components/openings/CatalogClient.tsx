@@ -87,7 +87,12 @@ function Catalog({ ds }: { ds: Dataset }) {
   return (
     <div className="py-6 space-y-6" data-testid="catalog">
       <div className="flex flex-col md:flex-row md:items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight md:mr-auto">Openings</h1>
+        <div className="md:mr-auto flex items-baseline gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Openings</h1>
+          <Link href="/openings/map" className="text-sm text-accent hover:underline" data-testid="map-link">
+            Map view
+          </Link>
+        </div>
         <div className="relative md:w-[420px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
           <input
@@ -244,40 +249,44 @@ const HubCardView = memo(function HubCardView({
   const sigmaEpd = ds.nodes[hub.sigmaNode].epd;
   const moves = formatMoves(hub.sigma, 0, 6);
   return (
-    <article className="relative rounded-xl border border-edge bg-surface hover:border-accent/60 transition-colors" data-testid="hub-card" data-hub={hub.slug}>
-      <Link href={`${hubHref(hub.slug)}?side=${side}`} className="flex gap-3 p-3 rounded-xl focus-visible:outline-2 focus-visible:outline-accent" aria-label={`${hub.title}, as ${side}`}>
-        <div className="w-24 shrink-0">
-          <MiniBoard fen={sigmaEpd} orientation={side} approach={hub.sigma} label={`${hub.title}: ${moves}`} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <h3 className="font-medium leading-snug flex-1 min-w-0">{hub.title}</h3>
-            {progress && <ProgressRing value={progress.mastery} due={progress.due} />}
+    <div className="hub-cell">
+      <article className="relative rounded-xl border border-edge bg-surface hover:border-accent/60 transition-colors" data-testid="hub-card" data-hub={hub.slug}>
+        {/* no viewport prefetch for 100+ cards (Next still prefetches on hover/focus) */}
+        <Link prefetch={false} href={`${hubHref(hub.slug)}?side=${side}`} className="flex gap-3 p-3 rounded-xl focus-visible:outline-2 focus-visible:outline-accent">
+          {/* the link's name is its visible text (title, moves, side badge); the board repeats the moves */}
+          <div className="w-24 shrink-0">
+            <MiniBoard fen={sigmaEpd} orientation={side} approach={hub.sigma} decorative />
           </div>
-          <div className="text-xs text-muted font-mono truncate mt-0.5">{moves}</div>
-          <div className="mt-1.5 flex flex-wrap gap-1 text-[11px] text-muted">
-            {course && (
-              <span className="px-1.5 rounded bg-surface-2">
-                {course.essentials[0]} / {course.complete[0]} lines
-              </span>
-            )}
-            {course && <span className="px-1.5 rounded bg-surface-2">depth {course.avgDepth}</span>}
-            <span className="px-1.5 rounded bg-surface-2">{hub.games.toLocaleString()} games</span>
-            <span className={`px-1.5 rounded border ${side === "white" ? "border-edge bg-white text-black" : "border-black bg-black text-white"}`}>{side === "white" ? "White" : "Black"}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <h3 className="font-medium leading-snug flex-1 min-w-0">{hub.title}</h3>
+              {progress && <ProgressRing value={progress.mastery} due={progress.due} />}
+            </div>
+            <div className="text-xs text-muted font-mono truncate mt-0.5">{moves}</div>
+            <div className="mt-1.5 flex flex-wrap gap-1 text-[11px] text-muted">
+              {course && (
+                <span className="px-1.5 rounded bg-surface-2">
+                  {course.essentials[0]} / {course.complete[0]} lines
+                </span>
+              )}
+              {course && <span className="px-1.5 rounded bg-surface-2">depth {course.avgDepth}</span>}
+              <span className="px-1.5 rounded bg-surface-2">{hub.games.toLocaleString()} games</span>
+              <span className={`px-1.5 rounded border ${side === "white" ? "border-edge bg-white text-black" : "border-black bg-black text-white"}`}>{side === "white" ? "White" : "Black"}</span>
+            </div>
+            {hub.games >= 10 && <WinBar white={hub.wdl[0]} draws={hub.wdl[1]} black={hub.wdl[2]} className="h-1.5 mt-2" showLabels={false} />}
+            {!system && <div className="text-[11px] text-muted mt-1">No course for {side} yet</div>}
           </div>
-          {hub.games >= 10 && <WinBar white={hub.wdl[0]} draws={hub.wdl[1]} black={hub.wdl[2]} className="h-1.5 mt-2" showLabels={false} />}
-          {!system && <div className="text-[11px] text-muted mt-1">No course for {side} yet</div>}
-        </div>
-      </Link>
-      {fresh > 0 && (
-        <span data-testid="new-lines-badge" className="absolute -top-2 right-2 inline-flex items-center gap-1 rounded-full bg-accent text-accent-fg text-[11px] font-medium pl-2 pr-1 py-0.5 shadow">
-          <Sparkles size={11} aria-hidden /> +{fresh} new line{fresh === 1 ? "" : "s"}
-          <button aria-label={`Dismiss the new-lines badge for ${hub.title}`} onClick={() => onDismiss(hub.slug)} className="p-0.5 rounded hover:bg-black/15">
-            <X size={11} />
-          </button>
-        </span>
-      )}
-    </article>
+        </Link>
+        {fresh > 0 && (
+          <span data-testid="new-lines-badge" className="absolute -top-2 right-2 inline-flex items-center gap-1 rounded-full bg-accent text-accent-fg text-[11px] font-medium pl-2 pr-1 py-0.5 shadow">
+            <Sparkles size={11} aria-hidden /> +{fresh} new line{fresh === 1 ? "" : "s"}
+            <button aria-label={`Dismiss the new-lines badge for ${hub.title}`} onClick={() => onDismiss(hub.slug)} className="p-0.5 rounded hover:bg-black/15">
+              <X size={11} />
+            </button>
+          </span>
+        )}
+      </article>
+    </div>
   );
 });
 

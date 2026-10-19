@@ -438,11 +438,11 @@ function Toggle({
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────
+/** openings.v2.meta.json (the fields shown here) */
 interface DatasetMeta {
-  version: string;
-  counts: { openings: number; positions: number; theoryMoves: number; corpusGamesIncluded: number };
-  builtWith?: { gamesCorpus?: { months?: string[] } | null };
-  sha256: string;
+  outputHash: string;
+  counts: { rows: number; positions: number; theoryMoves: number; statsCoveredPositions: number };
+  coverage: { hubs: number; courses: number; lines: number };
 }
 
 function DataTab() {
@@ -457,7 +457,7 @@ function DataTab() {
   const [confirmBackup, setConfirmBackup] = useState(false);
 
   useEffect(() => {
-    fetch("/data/openings.meta.json")
+    fetch("/data/openings.v2.meta.json")
       .then((r) => (r.ok ? r.json() : null))
       .then(setMeta)
       .catch(() => setMeta(null));
@@ -478,26 +478,21 @@ function DataTab() {
     <div className="space-y-4">
       <Card title="Opening dataset">
         {meta ? (
-          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
-            <dt className="text-muted">Version</dt>
-            <dd className="font-mono">{meta.version}</dd>
+          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5" data-testid="dataset-meta">
             <dt className="text-muted">Named openings</dt>
-            <dd>{meta.counts.openings.toLocaleString()}</dd>
+            <dd>{meta.counts.rows.toLocaleString()}</dd>
+            <dt className="text-muted">Openings · courses · lines</dt>
+            <dd>
+              {meta.coverage.hubs.toLocaleString()} · {meta.coverage.courses.toLocaleString()} · {meta.coverage.lines.toLocaleString()}
+            </dd>
             <dt className="text-muted">Positions</dt>
             <dd>{meta.counts.positions.toLocaleString()}</dd>
-            <dt className="text-muted">Games behind the stats</dt>
-            <dd>{meta.counts.corpusGamesIncluded.toLocaleString()} professional games</dd>
-            {meta.builtWith?.gamesCorpus?.months && (
-              <>
-                <dt className="text-muted">Corpus window</dt>
-                <dd>
-                  {meta.builtWith.gamesCorpus.months[0]} →{" "}
-                  {meta.builtWith.gamesCorpus.months.at(-1)}
-                </dd>
-              </>
-            )}
-            <dt className="text-muted">Checksum</dt>
-            <dd className="font-mono text-xs pt-0.5">{meta.sha256.slice(0, 16)}…</dd>
+            <dt className="text-muted">Theory moves</dt>
+            <dd>{meta.counts.theoryMoves.toLocaleString()}</dd>
+            <dt className="text-muted">Positions with master stats</dt>
+            <dd>{meta.counts.statsCoveredPositions.toLocaleString()}</dd>
+            <dt className="text-muted">Build</dt>
+            <dd className="font-mono text-xs pt-0.5">{meta.outputHash.slice(0, 16)}…</dd>
           </dl>
         ) : (
           <p className="text-sm text-muted">Dataset metadata unavailable.</p>

@@ -1,7 +1,7 @@
 /**
- * Guest-mode quiz engine. Plays the opponent from real theory (moves sampled
- * by master-game frequency) and grades answers locally. The authenticated
- * flow uses the same contract against Supabase RPCs (lib/quiz/remote.ts).
+ * The v1 guest quiz engine (SM-2, row-index identity). No longer used by the
+ * app: kept so scripts/progress/make-v1-fixture.ts can produce real v1
+ * localStorage for the migration tests (ADR 0003).
  */
 import { Chess } from "chess.js";
 import {

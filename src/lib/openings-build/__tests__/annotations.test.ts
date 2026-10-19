@@ -70,7 +70,8 @@ describe("migrated curated notes", () => {
   const a = parseAnnotations([{ path: "annotations/curated.pgn", text }], []);
   it("every v1 note resolves to a (position, move) key with its text", () => {
     expect(Object.keys(ANNOTATIONS).length).toBe(74);
-    expect(a.moves.size).toBe(74);
+    // the 74 migrated v1 notes + the 4 authored end-of-line plans (Phase 6)
+    expect(a.moves.size).toBe(78);
     let found = 0;
     for (const [line, note] of Object.entries(ANNOTATIONS)) {
       const sans = (line === "e4 e6 d5" ? "e4 e6 d4" : line).split(" ");
@@ -78,5 +79,15 @@ describe("migrated curated notes", () => {
       if (a.moves.get(key)?.why === note) found++;
     }
     expect(found).toBe(74);
+  });
+  it("the authored plans carry their text and arrows", () => {
+    const plans = [...a.moves.values()].filter((n) => n.plan);
+    expect(plans).toHaveLength(4);
+    for (const p of plans) {
+      expect(p.plan!.length).toBeGreaterThan(80);
+      expect(p.shapes?.some((sh) => sh.dest)).toBe(true);
+    }
+    const canal = a.moves.get(`${epdAfter("e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 Nc3 d6".split(" "))}|Bg5`);
+    expect(canal?.plan).toMatch(/Canal Variation/);
   });
 });

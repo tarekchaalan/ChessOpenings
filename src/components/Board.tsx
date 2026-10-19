@@ -5,7 +5,8 @@
  * Shapes (arrows, ✓/✕ badges), square tints and promotion choice live here so
  * every screen draws the same vocabulary (lib/coach/brushes).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useReducedMotion } from "@/lib/motion";
 import { Chess, SQUARES, Square } from "chess.js";
 import { Chessground } from "chessground";
 import type { Api } from "chessground/api";
@@ -71,16 +72,34 @@ export default function Board({
   shake,
   shapes,
   tints,
-  animationMs = 180,
+  animationMs: animationProp,
   label,
 }: BoardProps) {
+  // the trainer passes its own; elsewhere (Explore, Course Explorer) follow reduced motion
+  const reduced = useReducedMotion();
+  const animationMs = animationProp ?? (reduced ? 0 : 180);
   const ref = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const onMoveRef = useRef(onMove);
+  const [resync, setResync] = useState(0);
   const [promo, setPromo] = useState<{ from: string; to: string; color: "w" | "b" } | null>(null);
-  useEffect(() => {
+  const fenRef = useRef(fen);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
     onMoveRef.current = onMove;
-  }, [onMove]);
+    fenRef.current = fen;
+  }, [onMove, fen]);
+  /** After a user move: if the parent didn't take it (same fen), put the board back. */
+  const report = (san: string, mv: { from: string; to: string }) => {
+    const before = fenRef.current;
+    onMoveRef.current?.(san, mv);
+    // after React has committed the parent's update (a native event's update isn't synchronous)
+    setTimeout(() => {
+      const api = apiRef.current;
+      // a full re-set (fen, turn, legal moves): bump the effect below
+      if (api && fenRef.current === before && api.getFen() !== before.split(" ")[0]) setResync((n) => n + 1);
+    }, 150);
+  };
 
   useEffect(() => {
     if (!ref.current) return;
@@ -100,6 +119,9 @@ export default function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const lastMoveKey = lastMove?.join("") ?? "";
+  const hintKey = hintMove?.join("") ?? "";
+  const tintKey = JSON.stringify(tints ?? {});
   useEffect(() => {
     const api = apiRef.current;
     if (!api) return;
@@ -133,6 +155,7 @@ export default function Board({
             const piece = c.get(orig as Square);
             const rank = (dest as string)[1];
             if (piece?.type === "p" && (rank === "8" || rank === "1")) {
+              returnFocus.current = document.activeElement as HTMLElement | null;
               setPromo({ from: orig as string, to: dest as string, color: piece.color });
               return;
             }
@@ -142,7 +165,7 @@ export default function Board({
             } catch {
               return;
             }
-            onMoveRef.current?.(mv.san, { from: mv.from, to: mv.to });
+            report(mv.san, { from: mv.from, to: mv.to });
           },
         },
       },
@@ -159,11 +182,16 @@ export default function Board({
       },
     };
     api.set(config);
-  }, [fen, orientation, lastMove, movableColor, hintMove, shapes, tints, animationMs, promo]);
+    // keyed by value: callers pass fresh arrays/objects each render, and a re-set
+    // (legal moves + chessground redraw) on every parent render costs the move → feedback budget
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, orientation, lastMoveKey, movableColor, hintKey, shapes, tintKey, animationMs, promo, resync]);
 
   const choose = (p: string | null) => {
     const pending = promo;
     setPromo(null);
+    returnFocus.current?.focus?.();
+    returnFocus.current = null;
     if (!pending || !p) {
       apiRef.current?.set({ fen }); // cancelled: put the pawn back
       return;
@@ -171,7 +199,7 @@ export default function Board({
     const c = new Chess(full(fen));
     try {
       const mv = c.move({ from: pending.from, to: pending.to, promotion: p });
-      onMoveRef.current?.(mv.san, { from: mv.from, to: mv.to });
+      report(mv.san, { from: mv.from, to: mv.to });
     } catch {
       apiRef.current?.set({ fen });
     }
@@ -186,7 +214,33 @@ export default function Board({
     <div className={`board-shell ${shake ? "board-shake" : ""}`} aria-label={label ?? "Chess board"}>
       <div ref={ref} className="board-cg" />
       {promo && (
-        <div className="promo-overlay" role="dialog" aria-label="Choose a promotion piece" onClick={() => choose(null)}>
+        <div
+          className="promo-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a promotion piece (Q, R, B, N; Esc cancels)"
+          data-testid="promo-picker"
+          onClick={() => choose(null)}
+          onKeyDown={(e) => {
+            // the picker owns the keyboard while open (Esc must not reach the trainer)
+            e.stopPropagation();
+            const k = e.key.toLowerCase();
+            if (e.key === "Escape") {
+              e.preventDefault();
+              choose(null);
+            } else if (["q", "r", "b", "n"].includes(k) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+              e.preventDefault();
+              choose(k);
+            } else if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) {
+              // focus stays in the four pieces
+              e.preventDefault();
+              const btns = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+              const i = btns.indexOf(document.activeElement as HTMLButtonElement);
+              const back = e.key === "ArrowUp" || e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey);
+              btns[(i + (back ? btns.length - 1 : 1) + btns.length) % btns.length]?.focus();
+            }
+          }}
+        >
           <div
             className="promo-column"
             style={{ left: `${col * 12.5}%`, ...(fromTop ? { top: 0 } : { bottom: 0 }), flexDirection: fromTop ? "column" : "column-reverse" }}
@@ -196,6 +250,7 @@ export default function Board({
                 key={r.p}
                 autoFocus={r.p === "q"}
                 aria-label={`Promote to ${r.label}`}
+                data-testid={`promo-${r.p}`}
                 className="promo-piece cg-wrap"
                 onClick={(e) => {
                   e.stopPropagation();

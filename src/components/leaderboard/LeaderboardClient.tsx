@@ -50,8 +50,8 @@ export default function LeaderboardClient() {
         <Trophy className="mx-auto text-gold mb-3" size={28} />
         <h1 className="text-xl font-semibold mb-2">Leaderboard needs accounts</h1>
         <p className="text-sm text-muted">
-          This deployment runs without Supabase, so there&apos;s no shared leaderboard. Your practice
-          rating lives on the <Link href="/" className="text-accent underline">dashboard</Link>.
+          This deployment runs without Supabase, so there&apos;s no shared leaderboard (ratings are
+          computed by the server). Your progress lives on the <Link href="/" className="text-accent underline">dashboard</Link>.
         </p>
       </div>
     );

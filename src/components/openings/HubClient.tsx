@@ -249,7 +249,7 @@ function SystemRow({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="font-medium break-words min-w-0">{label}</span>
             {system.recommended && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-gold border border-gold/40 rounded px-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] text-gold-ink border border-gold/40 rounded px-1.5">
                 <Star size={10} aria-hidden /> Recommended
               </span>
             )}

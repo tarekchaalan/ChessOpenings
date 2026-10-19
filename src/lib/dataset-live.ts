@@ -49,8 +49,15 @@ async function fetchDataset(meta: MetaRef): Promise<Dataset> {
   for (const cache of ["force-cache", "no-store"] as const) {
     const r = await fetch(`/data/openings.v2.json?v=${meta.outputHash}`, { cache });
     if (!r.ok) throw new Error(`dataset fetch failed: ${r.status}`);
-    const raw = (await r.json()) as RawDatasetV2;
-    if (raw.inputHash === meta.inputHash) return parseDatasetV2(raw, meta.outputHash);
+    const text = await r.text();
+    // parse budget (§3, ≤ 150 ms): JSON + decoding, without the download
+    const t0 = performance.now();
+    const raw = JSON.parse(text) as RawDatasetV2;
+    if (raw.inputHash === meta.inputHash) {
+      const ds = parseDatasetV2(raw, meta.outputHash);
+      performance.measure("cot:dataset-parse", { start: t0, end: performance.now() });
+      return ds;
+    }
   }
   throw new Error("dataset changed while loading; retrying on the next update");
 }

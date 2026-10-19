@@ -4,9 +4,10 @@
  * tied to a ply; clicking one scrubs the board there. Messages are never
  * replaced. The newest message carries the live actions.
  */
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, CircleAlert, Eye, Flag, GitBranch, Lightbulb, Repeat, Sparkles, X } from "lucide-react";
 import type { ActionKind, FeedMsg } from "@/lib/trainer/session";
+import { motionReduced } from "@/lib/motion";
 
 export interface FeedActions {
   onAction: (a: ActionKind, msg: FeedMsg) => void;
@@ -44,13 +45,38 @@ export default function CoachFeed({
 }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (selected === null) end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    // no smooth scrolling under reduced motion
+    if (selected === null) end.current?.scrollIntoView({ block: "end", behavior: motionReduced() ? "auto" : "smooth" });
   }, [feed.length, selected]);
+
+  // messages are immutable and memoised: handlers go through a ref so a message
+  // re-renders only when its own props change (move → feedback budget, §3)
+  const latest = useRef({ onSelect, actions });
+  useLayoutEffect(() => {
+    latest.current = { onSelect, actions };
+  });
+  const handlers = useMemo<Handlers>(
+    () => ({
+      select: (m) => latest.current.onSelect(m),
+      action: (a, m) => latest.current.actions.onAction(a, m),
+      option: (li) => latest.current.actions.onOption?.(li),
+    }),
+    []
+  );
+  const clickable = actions.optionsClickable && !!actions.onOption;
 
   return (
     <div className="space-y-2 pb-2" role="log" aria-live="polite" aria-label="Coach" data-testid="coach-feed">
       {feed.map((m) => (
-        <Message key={m.id} m={m} selected={selected === m.id} onSelect={() => onSelect(m)} actions={actions} />
+        <Message
+          key={m.id}
+          m={m}
+          selected={selected === m.id}
+          live={actions.liveId === m.id}
+          optionsClickable={clickable}
+          doneMask={m.options ? m.options.map((o) => (o.line !== null && actions.lineDone(o.line) ? "1" : "0")).join("") : ""}
+          handlers={handlers}
+        />
       ))}
       {endSlot}
       <div ref={end} />
@@ -82,9 +108,30 @@ function Icon({ kind }: { kind: FeedMsg["kind"] }) {
   }
 }
 
-function Message({ m, selected, onSelect, actions }: { m: FeedMsg; selected: boolean; onSelect: () => void; actions: FeedActions }) {
+interface Handlers {
+  select: (m: FeedMsg) => void;
+  action: (a: ActionKind, m: FeedMsg) => void;
+  option: (line: number) => void;
+}
+
+const Message = memo(function Message({
+  m,
+  selected,
+  live,
+  optionsClickable,
+  doneMask,
+  handlers,
+}: {
+  m: FeedMsg;
+  selected: boolean;
+  live: boolean;
+  optionsClickable: boolean;
+  /** one char per option: learned (1) or not (0) */
+  doneMask: string;
+  handlers: Handlers;
+}) {
   const [more, setMore] = useState(false);
-  const live = actions.liveId === m.id;
+  const onSelect = useCallback(() => handlers.select(m), [handlers, m]);
   const tone =
     m.kind === "mistake"
       ? m.wrong?.soft
@@ -140,9 +187,9 @@ function Message({ m, selected, onSelect, actions }: { m: FeedMsg; selected: boo
       )}
       {m.options && (
         <ul className="pl-6 mt-1.5 flex flex-wrap gap-1.5">
-          {m.options.map((o) => {
-            const done = o.line !== null && actions.lineDone(o.line);
-            const clickable = actions.optionsClickable && o.line !== null && !o.current && actions.onOption;
+          {m.options.map((o, i) => {
+            const done = doneMask[i] === "1";
+            const clickable = optionsClickable && o.line !== null && !o.current;
             const body = (
               <>
                 <span className={`w-1.5 h-1.5 rounded-full ${done ? "bg-accent" : "border border-muted"}`} aria-label={done ? "learned" : "new"} />
@@ -153,7 +200,7 @@ function Message({ m, selected, onSelect, actions }: { m: FeedMsg; selected: boo
             return (
               <li key={o.san}>
                 {clickable ? (
-                  <button onClick={() => actions.onOption!(o.line!)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-edge hover:bg-surface-2 min-h-[32px]">
+                  <button onClick={() => handlers.option(o.line!)} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-edge hover:bg-surface-2 min-h-[32px]">
                     {body}
                   </button>
                 ) : (
@@ -170,7 +217,7 @@ function Message({ m, selected, onSelect, actions }: { m: FeedMsg; selected: boo
             <button
               key={a}
               data-testid={`action-${a}`}
-              onClick={() => actions.onAction(a, m)}
+              onClick={() => handlers.action(a, m)}
               className={`text-sm px-3 rounded-md min-h-[44px] md:min-h-[36px] ${
                 i === 0 ? "bg-accent text-accent-fg font-medium" : "border border-edge bg-surface hover:bg-surface-2"
               }`}
@@ -197,9 +244,14 @@ function Message({ m, selected, onSelect, actions }: { m: FeedMsg; selected: boo
               </p>
             </div>
           )}
-          {m.complete.plan && <p>{m.complete.plan}</p>}
+          {m.complete.plan && (
+            <div data-testid="end-plan">
+              <div className="text-xs font-medium text-muted uppercase tracking-wide">The plan</div>
+              <p className="mt-0.5">{m.complete.plan}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
-}
+});

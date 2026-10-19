@@ -7,6 +7,7 @@
  */
 import { createElement, useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
+import { motionReduced } from "@/lib/motion";
 
 import "chessground/assets/chessground.brown.css";
 import "@/styles/mini-pieces.css";
@@ -38,11 +39,13 @@ export interface MiniBoardProps {
   approach?: string[];
   className?: string;
   label?: string;
+  /** inside a link or card that already names the position: hidden from assistive tech */
+  decorative?: boolean;
 }
 
 const STEP_MS = 260;
 
-export default function MiniBoard({ fen, orientation = "white", approach, className = "", label }: MiniBoardProps) {
+export default function MiniBoard({ fen, orientation = "white", approach, className = "", label, decorative = false }: MiniBoardProps) {
   // replay frames are computed on the first hover, not for every card on mount
   const [frames, setFrames] = useState<{ key: string; list: string[] } | null>(null);
   const [frame, setFrame] = useState<number | null>(null);
@@ -55,7 +58,7 @@ export default function MiniBoard({ fen, orientation = "white", approach, classN
 
   const play = () => {
     if (!approach?.length || timer.current) return;
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (motionReduced()) return;
     if (typeof window !== "undefined" && !window.matchMedia("(hover: hover)").matches) return;
     const key = approach.join(" ");
     let list = frames?.key === key ? frames.list : null;
@@ -111,8 +114,7 @@ export default function MiniBoard({ fen, orientation = "white", approach, classN
       className={`mini-board ${className}`}
       onMouseEnter={play}
       onFocus={play}
-      role="img"
-      aria-label={label ?? "Chess position"}
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": label ?? "Chess position" })}
     >
       {createElement("cg-board")}
       {pieces.map((p) => (

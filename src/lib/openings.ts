@@ -75,23 +75,10 @@ interface RawDataset {
 }
 
 // ---------------------------------------------------------------------------
-// Loading. `loadDataset` (v2, live-reloading) lives in lib/dataset-live.ts;
-// the legacy v1 dataset stays for the row-index-keyed Learn/Quiz screens
-// until they are replaced (Phase 4) and progress is migrated (Phase 5).
+// Loading: `loadDataset` (v2, live-reloading) lives in lib/dataset-live.ts.
+// `parseDataset` below still reads the v1 file for the legacy map build and
+// the v1 fixture generator (scripts/progress/make-v1-fixture.ts).
 // ---------------------------------------------------------------------------
-let datasetPromise: Promise<Dataset> | null = null;
-
-export function loadLegacyDataset(): Promise<Dataset> {
-  if (!datasetPromise) {
-    datasetPromise = fetch("/data/openings.v1.json")
-      .then((r) => {
-        if (!r.ok) throw new Error(`dataset fetch failed: ${r.status}`);
-        return r.json() as Promise<RawDataset>;
-      })
-      .then(parseDataset);
-  }
-  return datasetPromise;
-}
 
 /** Decode the v2 graph (`chess-openings-trainer/graph@2`) into the shared shape. */
 export function parseDatasetV2(raw: RawDatasetV2, outputHash: string): Dataset {
