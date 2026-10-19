@@ -6,14 +6,30 @@ import { useEffect, useState } from "react";
 import { Moon, Sun, User as UserIcon, LogOut, Menu, X, Settings } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/supabase/AuthProvider";
+import { useNotificationCount } from "@/lib/friends/api";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
   { href: "/openings", label: "Openings" },
   { href: "/explore", label: "Explore" },
   { href: "/insights", label: "Insights" },
+  { href: "/friends", label: "Friends", account: true },
   { href: "/leaderboard", label: "Leaderboard" },
 ];
+
+/** "Friends" plus the unread badge (new followers, requests, accepted requests). */
+function NavLabel({ label, badge }: { label: string; badge: number }) {
+  if (!badge) return <>{label}</>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {label}
+      <span aria-hidden className="min-w-5 h-5 px-1 rounded-full bg-accent text-accent-fg text-[11px] leading-5 text-center font-semibold" data-testid="friends-badge-count">
+        {badge > 9 ? "9+" : badge}
+      </span>
+      <span className="sr-only">, {badge} new</span>
+    </span>
+  );
+}
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -35,6 +51,9 @@ export default function Header() {
   const pathname = usePathname();
   const { user, username, configured, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const badge = useNotificationCount(configured && !!user);
+  // Friends only for signed-in players on a deployment with accounts
+  const nav = NAV.filter((n) => !n.account || (configured && user));
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -47,7 +66,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-1 text-sm">
-          {NAV.map((n) => {
+          {nav.map((n) => {
             const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href) || (n.href === "/openings" && pathname.startsWith("/train"));
             return (
               <Link
@@ -59,7 +78,7 @@ export default function Header() {
                     : "text-muted hover:text-foreground hover:bg-surface-2"
                 }`}
               >
-                {n.label}
+                <NavLabel label={n.label} badge={n.href === "/friends" ? badge : 0} />
               </Link>
             );
           })}
@@ -118,7 +137,7 @@ export default function Header() {
 
       {open && (
         <nav className="md:hidden border-t border-edge px-4 py-2 flex flex-col bg-background">
-          {[...NAV, { href: "/settings", label: "Settings" }].map((n) => {
+          {[...nav, { href: "/settings", label: "Settings" }].map((n) => {
             const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href) || (n.href === "/openings" && pathname.startsWith("/train"));
             return (
               <Link
@@ -128,7 +147,7 @@ export default function Header() {
                   active ? "bg-accent-soft text-accent font-medium" : "text-muted"
                 }`}
               >
-                {n.label}
+                <NavLabel label={n.label} badge={n.href === "/friends" ? badge : 0} />
               </Link>
             );
           })}

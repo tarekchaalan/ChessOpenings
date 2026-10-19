@@ -18,6 +18,13 @@ function systemChromium(): string | undefined {
 }
 const executablePath = systemChromium();
 
+// e2e/supabase-stub.mjs: real migrations on a local Postgres behind a PostgREST/GoTrue
+// subset, so signed-in specs (friends) exercise the real policies. Its anon key is an
+// unsigned JWT the stub derives the same way.
+export const SUPABASE_STUB_PORT = Number(process.env.E2E_SUPABASE_PORT ?? 54398);
+const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const STUB_ANON_KEY = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ role: "anon", iss: "supabase-stub", exp: 4102444800 })}.e2e`;
+
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: false,
@@ -33,13 +40,27 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : {},
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    // E2E_PROD=1: a production build (the perf budgets are measured there; dev React is several times slower)
-    command: process.env.E2E_PROD ? `npm run build && npx next start -p ${PORT}` : `npm run dev -- -p ${PORT}`,
-    url: `http://localhost:${PORT}/data/openings.v2.meta.json`,
-    timeout: process.env.E2E_PROD ? 900_000 : 180_000,
-    reuseExistingServer: false,
-    stdout: "pipe",
-    stderr: "pipe",
-  },
+  webServer: [
+    {
+      command: "node e2e/supabase-stub.mjs",
+      url: `http://127.0.0.1:${SUPABASE_STUB_PORT}/health`,
+      timeout: 120_000,
+      reuseExistingServer: false,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+    {
+      // E2E_PROD=1: a production build (the perf budgets are measured there; dev React is several times slower)
+      command: process.env.E2E_PROD ? `npm run build && npx next start -p ${PORT}` : `npm run dev -- -p ${PORT}`,
+      url: `http://localhost:${PORT}/data/openings.v2.meta.json`,
+      timeout: process.env.E2E_PROD ? 900_000 : 180_000,
+      reuseExistingServer: false,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${SUPABASE_STUB_PORT}`,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: STUB_ANON_KEY,
+      },
+    },
+  ],
 });

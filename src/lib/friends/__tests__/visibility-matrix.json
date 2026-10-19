@@ -1,0 +1,125 @@
+{
+ "$comment": "ADR 0007 decision 2: does an audience reach a section level. Shared by visibility.test.ts and scripts/supabase/test-0008.sql.",
+ "rows": [
+  {
+   "audience": "owner",
+   "level": "everyone",
+   "visible": true
+  },
+  {
+   "audience": "owner",
+   "level": "followers",
+   "visible": true
+  },
+  {
+   "audience": "owner",
+   "level": "friends",
+   "visible": true
+  },
+  {
+   "audience": "owner",
+   "level": "only_me",
+   "visible": true
+  },
+  {
+   "audience": "friend",
+   "level": "everyone",
+   "visible": true
+  },
+  {
+   "audience": "friend",
+   "level": "followers",
+   "visible": true
+  },
+  {
+   "audience": "friend",
+   "level": "friends",
+   "visible": true
+  },
+  {
+   "audience": "friend",
+   "level": "only_me",
+   "visible": false
+  },
+  {
+   "audience": "follower",
+   "level": "everyone",
+   "visible": true
+  },
+  {
+   "audience": "follower",
+   "level": "followers",
+   "visible": true
+  },
+  {
+   "audience": "follower",
+   "level": "friends",
+   "visible": false
+  },
+  {
+   "audience": "follower",
+   "level": "only_me",
+   "visible": false
+  },
+  {
+   "audience": "stranger",
+   "level": "everyone",
+   "visible": true
+  },
+  {
+   "audience": "stranger",
+   "level": "followers",
+   "visible": false
+  },
+  {
+   "audience": "stranger",
+   "level": "friends",
+   "visible": false
+  },
+  {
+   "audience": "stranger",
+   "level": "only_me",
+   "visible": false
+  },
+  {
+   "audience": "anonymous",
+   "level": "everyone",
+   "visible": true
+  },
+  {
+   "audience": "anonymous",
+   "level": "followers",
+   "visible": false
+  },
+  {
+   "audience": "anonymous",
+   "level": "friends",
+   "visible": false
+  },
+  {
+   "audience": "anonymous",
+   "level": "only_me",
+   "visible": false
+  },
+  {
+   "audience": "blocked",
+   "level": "everyone",
+   "visible": false
+  },
+  {
+   "audience": "blocked",
+   "level": "followers",
+   "visible": false
+  },
+  {
+   "audience": "blocked",
+   "level": "friends",
+   "visible": false
+  },
+  {
+   "audience": "blocked",
+   "level": "only_me",
+   "visible": false
+  }
+ ]
+}

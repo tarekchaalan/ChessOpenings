@@ -1,5 +1,5 @@
 "use client";
-/** Settings: Account (username, email, sign out), Preferences (theme, hints), Data. */
+/** Settings: Account (username, email, sign out), Privacy (Friends), Preferences (theme, hints), Data. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   Monitor,
   Moon,
   Settings as SettingsIcon,
+  Shield,
   Sun,
   Trash2,
   TriangleAlert,
@@ -26,32 +27,35 @@ import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 import { authErrorMessage, callbackUrl, USERNAME_RE, USERNAME_RULE } from "@/lib/auth";
 import LinkedAccounts from "@/components/insights/LinkedAccounts";
 import { useInsights } from "@/lib/insights/client";
+import PrivacySettings from "./PrivacySettings";
 
-type Tab = "account" | "preferences" | "data";
+type Tab = "account" | "privacy" | "preferences" | "data";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "account", label: "Account", icon: <UserIcon size={15} /> },
+  { id: "privacy", label: "Privacy", icon: <Shield size={15} /> },
   { id: "preferences", label: "Preferences", icon: <SettingsIcon size={15} /> },
   { id: "data", label: "Data", icon: <Database size={15} /> },
 ];
 
 export default function SettingsClient() {
-  const [tab, setTab] = useState<Tab>("account");
+  const params = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => (TABS.some((t) => t.id === params.get("tab")) ? (params.get("tab") as Tab) : "account"));
 
   return (
     <div className="max-w-2xl mx-auto py-8">
       <h1 className="text-2xl font-semibold tracking-tight mb-6">Settings</h1>
 
-      <div className="flex gap-1 rounded-lg bg-surface-2 p-1 mb-6 max-w-md">
+      <div className="flex gap-1 rounded-lg bg-surface-2 p-1 mb-6 max-w-lg">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 h-9 text-sm rounded-md flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 min-w-0 h-9 text-xs sm:text-sm rounded-md flex items-center justify-center gap-1.5 transition-colors ${
               tab === t.id ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-foreground"
             }`}
           >
-            {t.icon}
+            <span className="hidden sm:inline-flex">{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -63,6 +67,7 @@ export default function SettingsClient() {
           <ChessAccountsCard />
         </div>
       )}
+      {tab === "privacy" && <PrivacySettings />}
       {tab === "preferences" && <PreferencesTab />}
       {tab === "data" && <DataTab />}
     </div>

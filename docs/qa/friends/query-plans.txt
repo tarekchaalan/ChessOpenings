@@ -1,0 +1,173 @@
+NOTICE:  database "cot_plans_0008" does not exist, skipping
+viewer: 3b407e22-c52c-487d-9498-c5f03760c008
+
+── feed (get_feed core)
+                                                                                                  QUERY PLAN                                                                                               
+   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Limit (actual time=6.800..6.806 rows=30 loops=1)
+      Buffers: shared hit=1792 read=10
+      ->  Sort (actual time=6.799..6.801 rows=30 loops=1)
+            Sort Key: ev.updated_at DESC, ev.id DESC
+            Sort Method: top-N heapsort  Memory: 26kB
+            Buffers: shared hit=1792 read=10
+            ->  Nested Loop (actual time=1.455..6.640 rows=1000 loops=1)
+                  Buffers: shared hit=1786 read=10
+                  ->  Bitmap Heap Scan on follows f (actual time=1.424..3.504 rows=50 loops=1)
+                        Recheck Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                        Filter: ((status = 'active'::text) AND friends_reaches(friends_audience('3b407e22-c52c-487d-9498-c5f03760c008'::uuid, followee_id), friends_level(followee_id, 'activity'::text)))
+                        Heap Blocks: exact=1
+                        Buffers: shared hit=636 read=10
+                        ->  Bitmap Index Scan on follows_pkey (actual time=0.054..0.054 rows=50 loops=1)
+                              Index Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                              Buffers: shared hit=3
+                  ->  Bitmap Heap Scan on activity_events ev (actual time=0.011..0.060 rows=20 loops=50)
+                        Recheck Cond: (f.followee_id = user_id)
+                        Filter: (updated_at > (now() - '30 days'::interval))
+                        Heap Blocks: exact=1000
+                        Buffers: shared hit=1150
+                        ->  Bitmap Index Scan on activity_events_user_id_dedupe_key_key (actual time=0.006..0.006 rows=20 loops=50)
+                              Index Cond: (user_id = f.followee_id)
+                              Buffers: shared hit=150
+    Planning:
+      Buffers: shared hit=311
+    Planning Time: 0.826 ms
+    Execution Time: 6.866 ms
+   (28 rows)
+   
+
+── profile follower count
+                                                          QUERY PLAN                                                       
+   ------------------------------------------------------------------------------------------------------------------------
+    Aggregate (actual time=0.329..0.330 rows=1 loops=1)
+      Buffers: shared hit=50
+      ->  Bitmap Heap Scan on follows (actual time=0.059..0.318 rows=48 loops=1)
+            Recheck Cond: ((followee_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (status = 'active'::text))
+            Heap Blocks: exact=47
+            Buffers: shared hit=50
+            ->  Bitmap Index Scan on follows_followee_idx (actual time=0.036..0.036 rows=48 loops=1)
+                  Index Cond: ((followee_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (status = 'active'::text))
+                  Buffers: shared hit=3
+    Planning:
+      Buffers: shared hit=104
+    Planning Time: 0.466 ms
+    Execution Time: 0.391 ms
+   (13 rows)
+   
+
+── profile following count
+                                           QUERY PLAN                                        
+   ------------------------------------------------------------------------------------------
+    Aggregate (actual time=0.055..0.056 rows=1 loops=1)
+      Buffers: shared hit=4
+      ->  Bitmap Heap Scan on follows (actual time=0.040..0.047 rows=50 loops=1)
+            Recheck Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+            Filter: (status = 'active'::text)
+            Heap Blocks: exact=1
+            Buffers: shared hit=4
+            ->  Bitmap Index Scan on follows_pkey (actual time=0.027..0.027 rows=50 loops=1)
+                  Index Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                  Buffers: shared hit=3
+    Planning:
+      Buffers: shared hit=104
+    Planning Time: 0.417 ms
+    Execution Time: 0.120 ms
+   (14 rows)
+   
+
+── audience (block + both follow checks)
+                                                 QUERY PLAN                                               
+   -------------------------------------------------------------------------------------------------------
+    Result (actual time=1.156..1.157 rows=1 loops=1)
+      Buffers: shared hit=102
+      InitPlan 1 (returns $0)
+        ->  Limit (actual time=0.035..0.036 rows=1 loops=1)
+              Buffers: shared hit=4
+              ->  Index Only Scan using follows_pkey on follows (actual time=0.035..0.035 rows=1 loops=1)
+                    Index Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                    Heap Fetches: 1
+                    Buffers: shared hit=4
+    Planning:
+      Buffers: shared hit=87
+    Planning Time: 0.337 ms
+    Execution Time: 1.182 ms
+   (13 rows)
+   
+
+── search prefix
+                                                                                                                      QUERY PLAN                                                                                                                    
+   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    Limit (actual time=0.029..0.043 rows=20 loops=1)
+      Buffers: shared hit=3
+      ->  Nested Loop Anti Join (actual time=0.028..0.040 rows=20 loops=1)
+            Join Filter: (((blocks.blocker_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (blocks.blocked_id = profiles.id)) OR ((blocks.blocker_id = profiles.id) AND (blocks.blocked_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)))
+            Buffers: shared hit=3
+            ->  Index Scan using profiles_username_lower_key on profiles (actual time=0.025..0.030 rows=20 loops=1)
+                  Index Cond: ((lower(username) >= 'player_012'::text) AND (lower(username) < 'player_013'::text))
+                  Filter: ((id <> '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (lower(username) ~~ 'player\_012%'::text))
+                  Buffers: shared hit=3
+            ->  Seq Scan on blocks (actual time=0.000..0.000 rows=0 loops=20)
+                  Filter: ((blocker_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) OR (blocked_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid))
+    Planning:
+      Buffers: shared hit=217 read=4
+    Planning Time: 0.589 ms
+    Execution Time: 0.084 ms
+   (15 rows)
+   
+
+── friends leaderboard
+                                                                                                                             QUERY PLAN                                                                                                                           
+   ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    WindowAgg (actual time=1.815..1.839 rows=51 loops=1)
+      Buffers: shared hit=121
+      ->  Sort (actual time=1.803..1.810 rows=51 loops=1)
+            Sort Key: p.rating DESC, p.attempts DESC
+            Sort Method: quicksort  Memory: 27kB
+            Buffers: shared hit=121
+            ->  Hash Join (actual time=0.109..1.771 rows=51 loops=1)
+                  Hash Cond: (p.id = ('3b407e22-c52c-487d-9498-c5f03760c008'::uuid))
+                  Buffers: shared hit=118
+                  ->  Seq Scan on profiles p (actual time=0.004..0.887 rows=10000 loops=1)
+                        Buffers: shared hit=114
+                  ->  Hash (actual time=0.088..0.091 rows=51 loops=1)
+                        Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                        Buffers: shared hit=4
+                        ->  HashAggregate (actual time=0.074..0.081 rows=51 loops=1)
+                              Group Key: ('3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                              Batches: 1  Memory Usage: 24kB
+                              Buffers: shared hit=4
+                              ->  Append (actual time=0.002..0.062 rows=51 loops=1)
+                                    Buffers: shared hit=4
+                                    ->  Result (actual time=0.001..0.001 rows=1 loops=1)
+                                    ->  Nested Loop Anti Join (actual time=0.032..0.055 rows=50 loops=1)
+                                          Join Filter: (((b.blocker_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (b.blocked_id = f.followee_id)) OR ((b.blocker_id = f.followee_id) AND (b.blocked_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)))
+                                          Buffers: shared hit=4
+                                          ->  Bitmap Heap Scan on follows f (actual time=0.030..0.036 rows=50 loops=1)
+                                                Recheck Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                                                Filter: (status = 'active'::text)
+                                                Heap Blocks: exact=1
+                                                Buffers: shared hit=4
+                                                ->  Bitmap Index Scan on follows_pkey (actual time=0.025..0.025 rows=50 loops=1)
+                                                      Index Cond: (follower_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid)
+                                                      Buffers: shared hit=3
+                                          ->  Seq Scan on blocks b (actual time=0.000..0.000 rows=0 loops=50)
+                                                Filter: ((blocker_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) OR (blocked_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid))
+    Planning:
+      Buffers: shared hit=233
+    Planning Time: 0.692 ms
+    Execution Time: 1.980 ms
+   (38 rows)
+   
+
+── requests list
+                                                    QUERY PLAN                                                  
+   -------------------------------------------------------------------------------------------------------------
+    Index Scan using follows_followee_idx on follows (actual time=0.063..0.063 rows=0 loops=1)
+      Index Cond: ((followee_id = '3b407e22-c52c-487d-9498-c5f03760c008'::uuid) AND (status = 'pending'::text))
+      Buffers: shared hit=3
+    Planning:
+      Buffers: shared hit=98
+    Planning Time: 0.394 ms
+    Execution Time: 0.093 ms
+   (7 rows)
+   
+rows: profiles 10000, follows 500000, activity_events 200000
