@@ -1,6 +1,6 @@
 # ADR 0007 — Friends (follow, profiles, shared progress)
 
-- **Status:** proposed (Phase 0, 2026-10-19). Waiting on the owner's decisions under "Open decisions". No code or migration exists yet.
+- **Status:** accepted (2026-10-19). The owner accepted every recommendation under "Open decisions"; Phases 1–4 are built (see "As built"). Migration `0008_friends.sql` is tested locally; the owner applies it to the hosted project.
 - **Spec:** `docs/prompts/friends.md`.
 - **Builds on:** ADR 0006 (Account Insights). Its tables `linked_accounts` and `game_summaries` exist (`0006_account_insights.sql`), so the prerequisite in spec §0 is met.
 
@@ -285,7 +285,7 @@ Assumptions for sizing (the app is small today; these are planning numbers, not 
 | 4 | Compare, the friends leaderboard, the Challenge button, e2e and axe. |
 | 5 | Optional, ask first: Lichess OAuth and direct challenges. |
 
-## Open decisions (owner)
+## Open decisions (owner) — decided 2026-10-19: all as recommended
 
 1. **Defaults:** A (all Only me + a preset card on first follow; recommended), B (Friends for learning, stats and activity) or C (A for existing, B for new).
 2. **Follow model:** one-way with optional approval, approval off by default. Confirm.
@@ -304,3 +304,40 @@ Assumptions for sizing (the app is small today; these are planning numbers, not 
   - `course_progress.mastery` is client-reported. Friends see whatever the owner's browser sent; it can only misrepresent the owner.
   - Linked accounts are unverified until Phase 5 (Lichess only).
 - **Remote step (later, with permission):** the owner applies `0008_friends.sql` to the hosted project. Nothing touches it before then.
+
+## Decisions (owner, 2026-10-19)
+
+"All looks good": every recommendation above is accepted.
+
+1. **Defaults A:** every section starts at Only me; the preset card offers learning, stats and activity to friends on a first follow (and on `/friends`) until answered.
+2. **Follow model:** one-way, optional approval, off by default.
+3. **"Openings they play"** is part of the `linked` section.
+4. **`linked_accounts.visibility` is dropped** in 0008.
+5. **Stat names:** "Lines trained", "Graded moves this week".
+6. **Migration `0008_friends.sql`.**
+
+## As built (Phases 1–4)
+
+- **Migration** `supabase/migrations/0008_friends.sql`, idempotent. Function names are prefixed `friends_` for the internal helpers (`friends_audience`, `friends_reaches`, `friends_level`, `friends_can_view`, `friends_streak`, …), none granted to clients. Client RPCs: `get_profile` (anon + authenticated), `search_profiles`, `my_follows`, `get_feed`, `compare_with`, `friends_leaderboard`, `get_privacy`, `set_privacy`, `my_blocks`, `notification_count`, `my_notifications`, `mark_notifications_read`, `follow`, `unfollow`, `accept_follower`, `decline_follower`, `remove_follower`, `block`, `unblock`. `privacy_settings` also has `preset_answered` for the card.
+- **Activity trigger ordering.** "First attempt of the UTC day" and "first correct answer on this line" compare `id < new.id`, not `id <> new.id`: a multi-row insert fires AFTER ROW triggers once all its rows are in, so `<>` made every row see the others and nothing counted. `train_commit` inserts one row at a time, so production behaviour is the same either way; the SQL test inserts in bulk and caught it.
+- **SQL tests** (`scripts/supabase/test-0008.sh`, Postgres 16, 2026-10-19): all passed. 236 matrix checks: `friends_can_view` 128 (8 viewers — owner, friend, follower, stranger, pending follower, anonymous, blocked by owner, blocked the owner — × 4 levels × 4 sections), `get_profile` sections 72 plus 8 blocked-is-null, `get_feed` 28. Then the view-as, challenge, blocks-everywhere, transitions, direct-access-denied, activity, rate-limit and deletion suites. `test-0006.sh` still passes.
+- **Query plans** (`scripts/supabase/plans-0008.sh`; output in `docs/qa/friends/query-plans.txt`), 10,000 players, 500,000 follows, 200,000 events, warm cache:
+
+  | Query | Plan | Time |
+  |---|---|---|
+  | Feed (core of `get_feed`) | `follows_pkey` bitmap scan (50 rows) → nested loop into `activity_events` by `user_id`, top-N sort | 6.9 ms |
+  | Follower count | `follows_followee_idx` | 0.4 ms |
+  | Following count | `follows_pkey` prefix | 0.1 ms |
+  | `friends_audience` | block check + two PK lookups | 1.2 ms |
+  | Search prefix | `profiles_username_lower_key` range scan (the planner turns `like 'x%'` into a range on the unique `lower()` index), anti-join on `blocks` | 0.1 ms |
+  | Friends board | hash join of the caller's follows (51 rows) with a seq scan of `profiles` (114 buffers) | 2.0 ms |
+  | Requests list | `follows_followee_idx` | 0.1 ms |
+
+  The friends board is driven by the caller's follows, but at 10k profiles the planner still prefers one sequential pass over 114 pages to 51 index probes. It's linear in player count; at around 100k it should switch to the index on its own. Revisit if it shows up. The extra `text_pattern_ops` index went unused here because the unique `lower()` index already served the prefix range; it's kept for databases with a non-C collation where that rewrite doesn't apply.
+- **e2e with two signed-in users** (`e2e/friends.spec.ts`, 5 tests) run against `e2e/supabase-stub.mjs`: the real migrations on a local Postgres behind a PostgREST/GoTrue subset (password sign-in, `/rest/v1/rpc`, simple table reads). Playwright starts it before the dev server and points `NEXT_PUBLIC_SUPABASE_URL` at it, so **every spec now runs with accounts configured** and the suite needs a local Postgres 16. Challenge URLs are asserted, never opened.
+- **Bugs the e2e caught and fixed:** the owner lost the "view as" control while previewing (a preview has no relationship, so ownership now comes from the signed-in username); the follow button's accessible name didn't contain its visible text (WCAG 2.5.3); privacy controls only changed after the save returned.
+- **Not done:**
+  - **Phase 5 (Lichess OAuth, direct challenges):** optional and "ask first" in the spec. It needs a Lichess OAuth app registration, an encryption key for the stored token, and a revoke flow, all owner decisions.
+  - **Phone app-handoff checks** (the table above) need real devices.
+  - **Realtime badge:** the badge polls (load, focus, every 60 s while visible), as planned.
+

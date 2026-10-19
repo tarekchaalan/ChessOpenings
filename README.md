@@ -180,6 +180,7 @@ src/lib/quiz/                quiz engines: local (guest) + remote (RPC)
 src/lib/progress/            progress stores: localStorage + Supabase
 src/components/              board, explorer, learn, quiz, dashboard, auth
 supabase/migrations/         schema, RLS, RPCs
+src/lib/friends/             friends: visibility, feed, compare, challenge, RPC client
 supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ```
 
@@ -215,6 +216,41 @@ Fix / Fill / Grow recommendations, each linking into the trainer. Design:
 - `npx tsx scripts/insights/live-check.ts [lichessUser] [chesscomUser]` runs a
   live import against real accounts (not part of `npm test`, which only uses
   captured fixtures).
+
+## Friends
+
+Players with accounts can follow each other (one-way; **friends** = both
+follow), see what their friends are learning, compare, and challenge them on
+Lichess or Chess.com. Design: `docs/design/0007-friends.md`.
+
+- **Pages:** `/friends` (feed, Following / Followers / Requests / Search,
+  Compare), `/u/[username]` (shareable profile with a "view as" preview for
+  the owner), a Friends tab on the leaderboard, and Settings → Privacy.
+- **Privacy:** four sections (linked accounts, openings I'm learning,
+  training stats, activity), each Everyone / Followers / Friends / Only me.
+  Everything starts at **Only me**; a one-click card offers "friends see my
+  learning, stats and activity" on a first follow. Username, app rating and
+  accuracy stay public, as on the leaderboard. Optional "approve followers".
+  Blocking hides both players from each other everywhere in Friends.
+- **Security:** migration `0008_friends.sql`. No table policy exposes another
+  player's rows; every cross-user read is a `SECURITY DEFINER` function that
+  takes the viewer from the JWT and checks each section (`friends_audience`,
+  `friends_reaches`). Writes are RPCs too. Feed events come only from triggers
+  on `quiz_attempts`, `course_progress` and `linked_accounts`.
+- **Challenge:** links only, opened in a new tab:
+  `https://lichess.org/?user={u}#friend` and `https://www.chess.com/play/{u}`,
+  built from the friend's stored linked username.
+- **Tests:** `npm test` (visibility truth table, feed, compare, challenge),
+  `scripts/supabase/test-0008.sh` (the policy matrix and every RPC on a local
+  Postgres), `scripts/supabase/plans-0008.sh` (query plans at 10k players),
+  and `e2e/friends.spec.ts`.
+- **e2e and Postgres:** `npm run test:e2e` starts `e2e/supabase-stub.mjs`, a
+  stand-in for Supabase that runs the real migrations on a **local Postgres
+  16** (`DATABASE_URL`, default `postgres://postgres@127.0.0.1:54329/postgres`,
+  started with `scripts/supabase/local-pg.sh` when it isn't running) behind a
+  small PostgREST/GoTrue subset, so signed-in specs exercise the real
+  policies. Every spec now runs with accounts configured.
+- No new environment variables.
 
 ## Engine
 
