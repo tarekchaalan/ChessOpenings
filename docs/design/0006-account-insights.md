@@ -295,3 +295,36 @@ Every number is computed from the imported summaries. No platform-wide or master
   - Chess.com may change the monthly fields that are only documented elsewhere (`time_class`, `rated`). The parser tolerates their absence by skipping the game and counting it ("N games couldn't be classified"), rather than guessing a time class.
   - Lichess limits are per IP. Shared networks (schools, clubs) can still hit 429 and get the 60 s back-off.
 - **Remote step:** the owner applies `0006_account_insights.sql`. No new environment variables are needed with B (the existing `SUPABASE_*` server variables cover the routes).
+
+## Phases 1–4 amendments (as built)
+
+**Files**
+
+| Path | What |
+|---|---|
+| `src/lib/insights/` | `types`, `pgn`, `sources/{lichess,chesscom}`, `filter`, `book`, `summarize`, `aggregate`, `links`, `bands`, `weights`, `recommend` (pure, tested); `fetch` (browser importers, injectable `fetch`), `local` (guest store, merge, cross-tab lock), `client` (the store the UI uses), `verdicts` (Lichess / Stockfish) |
+| `src/lib/server/insights.ts`, `insights-db.ts`, `src/app/api/insights/[action]/route.ts` | Write path |
+| `src/components/insights/` | `InsightsClient` (`/insights`), `LinkedAccounts` (also in Settings → Account) |
+| `src/components/dashboard/Dashboard.tsx` | Insights card |
+| `e2e/insights.spec.ts` | Mocked platforms, axe, phone width, deep links |
+| `scripts/insights/live-check.ts` | Live acceptance check → `docs/qa/insights/live-import.md` |
+
+**Changes from the plan above**
+
+- **Rate limit storage.** `0006` adds `linked_accounts.sync_window_start` and `sync_calls` (server bookkeeping; clients can read but not write them). They are added with `add column if not exists`, so a project that ran an earlier draft of `0006` picks them up on a re-run.
+- **Upserts always update.** Same game, same values unless the dataset changed, so the conditional update bought nothing.
+- **Lichess verdict:** taken from any game in the group that has the analysis (same position and move), not only when all of them do.
+- **Engine cancellation:** the worker has no stop call besides a newer search. On unmount the remaining queue is dropped and the running search (≤ 700 ms) finishes unread.
+- **Recommendations:** at most 4 per kind; Grow picks 2 per side. With no rating for the most-played time control, Grow uses the beginner and intermediate sets and says so.
+- **Re-linking** a different username for a platform replaces the old account and its games (server and guest store alike).
+- **Course names** drop the hub title when the system name already starts with it ("Sicilian Defense: Old Sicilian", not "Sicilian Defense: Sicilian Defense: Old Sicilian").
+
+**Results**
+
+- Unit tests: `src/lib/insights/__tests__/` and `src/lib/server/__tests__/insights.test.ts`, on the captured fixtures. Deep links on the 27 in-scope fixture games: 15 at the exit position, 12 at an earlier position on the path, 0 catalog-only.
+- e2e: `e2e/insights.spec.ts` uses a second real fixture, `lichess-games-90d.ndjson` (43 blitz games, 2026-07-23 to 2026-08-15), because the 15-game sample has no opening with 5+ games.
+- Live check, 2026-10-19 (`docs/qa/insights/live-import.md`):
+  - Lichess `Zhigalko_Sergei`: 43 games, 11.5 s (the API's anonymous rate).
+  - Chess.com `hikaru`: 200 games, 2.2 s; 401 bullet games skipped.
+  - Every summary passed the server's `checkSummary`.
+  - A re-sync from the cursor returned 0 games on both platforms.
