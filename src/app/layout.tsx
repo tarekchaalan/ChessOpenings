@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
@@ -26,6 +26,14 @@ export const metadata: Metadata = {
   },
   description:
     "Learn every chess opening by name, drill mainlines and variations against real theory, and climb the leaderboard.",
+};
+
+/** browser chrome (mobile address bar, PWA title bar) matches the page background */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#131314" },
+  ],
 };
 
 export default function RootLayout({

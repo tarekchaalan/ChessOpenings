@@ -48,6 +48,13 @@ export function formatScore(s: Score): string {
   return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}`;
 }
 
+/** The eval bar's in-bar label: no sign (the fill shows who is ahead), "M3" for mate. */
+export function barLabel(white: Score): string {
+  if ("mate" in white) return `M${Math.abs(white.mate)}`;
+  const v = Math.abs(white.cp / 100);
+  return v >= 9.95 ? v.toFixed(0) : v.toFixed(1);
+}
+
 /** White's winning chances 0–1 for the eval bar (lichess' logistic curve). */
 export function whiteShare(white: Score): number {
   if ("mate" in white) return white.mate > 0 ? 1 : 0;

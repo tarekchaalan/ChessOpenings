@@ -26,8 +26,12 @@ export interface Prefs {
   /** FSRS target retention */
   targetRetention: number;
   boardTheme: BoardTheme;
-  /** eval bar in the trainer's Stats tab (needs the engine; hidden without it) */
-  evalBar: boolean;
+  /**
+   * vertical eval bar beside the trainer's board (needs the engine; hidden
+   * without it). A new key: the old `evalBar` (off by default) was persisted
+   * with every other pref, so reusing it would keep the bar off for most users.
+   */
+  showEval: boolean;
   /** reduced motion: follow the OS, or force it on/off */
   motion: MotionPref;
 }
@@ -41,7 +45,7 @@ export const DEFAULT_PREFS: Prefs = {
   dailyReviewCap: 150,
   targetRetention: 0.9,
   boardTheme: "brown",
-  evalBar: false,
+  showEval: true,
   motion: "system",
 };
 

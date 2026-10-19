@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="Chess Openings Trainer logo" width="128" height="128">
+</p>
+
 # Chess Openings Trainer
 
 Learn chess openings by name, drill every mainline and variation against real
@@ -39,15 +43,28 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
 1. Create a project at [supabase.com](https://supabase.com).
 2. Apply the schema — either:
    - `supabase link --project-ref <ref> && supabase db push`, or
-   - paste `supabase/migrations/0001_schema.sql` into the SQL editor.
+   - paste `supabase/migrations/*.sql` into the SQL editor, in order.
 3. Seed the theory tables (used server-side to validate answers). They are
    numbered files under 1 MB in `supabase/seed/`, applied in name order:
    - `for f in supabase/seed/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done`, or without psql:
      `NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:remote`
 4. Copy `.env.example` to `.env.local` and fill in
    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-5. Add `https://<your-domain>/auth/callback` to Auth → URL Configuration →
-   Redirect URLs (needed for magic-link sign-in).
+5. Auth email (Authentication in the dashboard, or `supabase config push`
+   from `supabase/config.toml`):
+   - **URL Configuration**: Site URL `https://<your-domain>` (no trailing
+     slash); Redirect URLs `https://<your-domain>/auth/callback**`.
+   - **SMTP**: Resend, sending as `do-not-reply@tarekchaalan.com` (host
+     `smtp.resend.com`, port 465, user `resend`, password = the sending-only
+     Resend key). Supabase's built-in mailer only delivers to the project's
+     team members, a few emails an hour, so other players would never receive
+     sign-up, magic-link or reset emails.
+   - **Email templates**: paste `supabase/templates/*.html` (confirm signup,
+     magic link, reset password, change email). They link to
+     `/auth/callback?token_hash=…`, which works on any device; the default
+     templates' PKCE links only work in the browser that asked for the email.
+6. Account deletion (Settings → Delete account) calls `DELETE /api/account`,
+   which needs the server variables below (`SUPABASE_SECRET_KEY` etc.).
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
 and `seed/*.sql` automatically. Migrating an existing v1 project (user data):

@@ -268,7 +268,11 @@ test.describe("mobile", () => {
     await page.goto(`${RUY}?mode=learn`);
     await phaseIs(page, "await", 0);
     const board = (await page.locator(".board-cg").boundingBox())!;
-    expect(board.width).toBeGreaterThanOrEqual(375 - 32);
+    // the eval bar (on by default) shares the row: together they fill the width
+    const bar = await page.getByTestId("eval-bar").boundingBox();
+    const row = bar ? board.x + board.width - bar.x : board.width;
+    expect(row).toBeGreaterThanOrEqual(375 - 32);
+    expect(board.width).toBeGreaterThanOrEqual(375 - 32 - 24);
     const panel = (await page.getByTestId("coach-panel").boundingBox())!;
     expect(panel.y + panel.height).toBeCloseTo(812, 0);
     expect(panel.height / 812).toBeGreaterThan(0.27);

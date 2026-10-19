@@ -6,15 +6,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Palette from the brand mark (Logo.tsx, the Chess Analysis app icon): its
+ * forest-green knight for the accent, its charcoal tile for the dark theme's
+ * neutrals. Text pairs are WCAG AA (≥ 4.5:1), checked for every surface.
+ */
 :root {
-  --background: #faf9f6;
+  --background: #f6f6f4;
   --surface: #ffffff;
-  --surface-2: #f1efe9;
-  --border: #e4e1d8;
-  --foreground: #1c1b18;
-  --muted: #6f6b60;
-  --accent: #147a4d;
-  --accent-soft: #e3f2ea;
+  --surface-2: #ededea;
+  --border: #dfdfdb;
+  --foreground: #1a1b19;
+  --muted: #686a64;
+  --accent: #2d6a20;
+  --accent-soft: #e5efe0;
   --accent-fg: #ffffff;
   --danger: #c2410c;
   --gold: #b98a1c;
@@ -28,15 +33,15 @@
 }
 
 .dark {
-  --background: #14161a;
-  --surface: #1c1f25;
-  --surface-2: #23272f;
-  --border: #2e333c;
-  --foreground: #e8e6e1;
-  --muted: #a3a095;
-  --accent: #2fbd7f;
-  --accent-soft: #17362a;
-  --accent-fg: #0c1210;
+  --background: #131314;
+  --surface: #1c1c1d;
+  --surface-2: #262627;
+  --border: #333434;
+  --foreground: #e7e8e5;
+  --muted: #a3a59f;
+  --accent: #73bb57;
+  --accent-soft: #1d3417;
+  --accent-fg: #0b1a06;
   --danger: #f97316;
   --gold: #e3b341;
   --gold-ink: #e3b341;
@@ -205,6 +210,9 @@ cg-board square.sq-authored-blue { background: rgb(0 48 136 / 0.32); }
 
 /* ── Trainer ──────────────────────────────────────────────────────────── */
 .trainer .board-shell { max-width: 100%; }
+.eval-fill { transition: height 400ms ease-out; }
+.trainer.reduced .eval-fill { transition: none; }
+@media (prefers-reduced-motion: reduce) { .eval-fill { transition: none; } }
 @media (min-width: 768px) { .trainer .board-shell { max-width: 640px; } }
 .crumb-fade { animation: crumb-fade 260ms ease-out; }
 @keyframes crumb-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -238,7 +246,7 @@ html[data-motion="reduce"] *::after {
 
 /* ── Opening map: ECO volume fills (text stays ≥ AA on every fill) ── */
 :root { --eco-a: #cfe3f5; --eco-b: #f6d5c8; --eco-c: #d5ecd5; --eco-d: #e3d7f1; --eco-e: #f3e7b8; --eco-none: #e9e7e1; --map-ink: #1c1b18; }
-.dark { --eco-a: #1f3b57; --eco-b: #5a2f22; --eco-c: #1f4a2c; --eco-d: #3d2f57; --eco-e: #544817; --eco-none: #2e333c; --map-ink: #e8e6e1; }
+.dark { --eco-a: #1f3b57; --eco-b: #5a2f22; --eco-c: #1f4a2c; --eco-d: #3d2f57; --eco-e: #544817; --eco-none: #333434; --map-ink: #e7e8e5; }
 .map-cell rect, .map-swatch { fill: var(--eco-none); background: var(--eco-none); }
 [data-volume="A"] rect, .map-swatch[data-volume="A"] { fill: var(--eco-a); background: var(--eco-a); }
 [data-volume="B"] rect, .map-swatch[data-volume="B"] { fill: var(--eco-b); background: var(--eco-b); }

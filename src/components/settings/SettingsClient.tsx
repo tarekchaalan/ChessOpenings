@@ -2,6 +2,7 @@
 /** Settings: Account (username, email, sign out), Preferences (theme, hints), Data. */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Check,
@@ -13,6 +14,7 @@ import {
   Settings as SettingsIcon,
   Sun,
   Trash2,
+  TriangleAlert,
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/supabase/AuthProvider";
@@ -21,6 +23,7 @@ import { getSupabase } from "@/lib/supabase/client";
 import { clearLocalData, clearV1Backup, setPref, usePrefs, v1BackupSize } from "@/lib/prefs";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
+import { authErrorMessage, callbackUrl, USERNAME_RE, USERNAME_RULE } from "@/lib/auth";
 
 type Tab = "account" | "preferences" | "data";
 
@@ -62,6 +65,7 @@ export default function SettingsClient() {
 // ── Account ────────────────────────────────────────────────────────────────
 function AccountTab() {
   const { user, username, configured, signOut, refreshProfile } = useAuth();
+  const params = useSearchParams();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -97,26 +101,34 @@ function AccountTab() {
     );
   }
 
-  const save = async () => {
-    if (!/^[A-Za-z0-9_]{3,20}$/.test(name)) {
-      setMsg({ kind: "error", text: "3–20 characters: letters, numbers, underscores." });
+  const trimmed = name.trim();
+  const save = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (saving) return;
+    if (!USERNAME_RE.test(trimmed)) {
+      setMsg({ kind: "error", text: USERNAME_RULE });
       return;
     }
     setSaving(true);
     setMsg(null);
-    const { error } = await getSupabase()!
-      .from("profiles")
-      .update({ username: name, updated_at: new Date().toISOString() })
-      .eq("id", user.id);
+    const sb = getSupabase()!;
+    const update = () =>
+      sb.from("profiles").update({ username: trimmed, updated_at: new Date().toISOString() }).eq("id", user.id).select("username").maybeSingle();
+    let { data, error } = await update();
+    if (!error && !data) {
+      // no row was updated: the profile is missing, so create it and try once more
+      const ensured = await sb.rpc("ensure_profile");
+      if (!ensured.error) ({ data, error } = await update());
+    }
     setSaving(false);
     if (error) {
-      setMsg({
-        kind: "error",
-        text: error.code === "23505" ? "That username is taken." : error.message,
-      });
+      setMsg({ kind: "error", text: authErrorMessage(error) });
+    } else if (!data) {
+      setMsg({ kind: "error", text: "Couldn't save your username. Sign out and back in, then try again." });
     } else {
       await refreshProfile();
-      setMsg({ kind: "ok", text: "Username updated." });
+      setName(data.username);
+      setMsg({ kind: "ok", text: "Username saved." });
     }
   };
 
@@ -126,36 +138,38 @@ function AccountTab() {
         <p className="text-sm text-muted mb-3">
           Shown on the leaderboard and across the site.
         </p>
-        <div className="flex gap-2">
+        <form onSubmit={save} className="flex gap-2">
+          <label htmlFor="settings-username" className="sr-only">Username</label>
           <input
+            id="settings-username"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={20}
+            autoComplete="username"
+            autoCapitalize="off"
+            spellCheck={false}
             className="flex-1 h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
-            placeholder="username"
+            placeholder={username ? "username" : "loading…"}
           />
           <button
-            onClick={save}
-            disabled={saving || name === username}
+            type="submit"
+            disabled={saving || !trimmed || trimmed === username}
             className="px-4 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             Save
           </button>
-        </div>
+        </form>
         {msg && (
-          <p className={`text-sm mt-2 ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
+          <p role={msg.kind === "error" ? "alert" : "status"} className={`text-sm mt-2 ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
             {msg.text}
           </p>
         )}
       </Card>
 
-      <Card title="Email">
-        <p className="text-sm">{user.email}</p>
-        <p className="text-xs text-muted mt-1">Used for sign-in only — never shown publicly.</p>
-      </Card>
+      <EmailCard email={user.email ?? ""} pending={user.new_email ?? null} changed={params.get("email") === "changed"} />
 
-      <ChangePasswordCard />
+      <ChangePasswordCard email={user.email ?? ""} />
 
       <Card title="Session">
         <button
@@ -165,12 +179,193 @@ function AccountTab() {
           <LogOut size={15} /> Sign out
         </button>
       </Card>
+
+      <DeleteAccountCard confirmWord={username ?? user.email ?? ""} />
     </div>
   );
 }
 
-function ChangePasswordCard() {
+function EmailCard({ email, pending, changed }: { email: string; pending: string | null; changed: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [next, setNext] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(changed ? { kind: "ok", text: "Email confirmed." } : null);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const to = next.trim();
+    if (saving || !to) return;
+    if (to.toLowerCase() === email.toLowerCase()) {
+      setMsg({ kind: "error", text: "That's already your email." });
+      return;
+    }
+    setSaving(true);
+    setMsg(null);
+    const { error } = await getSupabase()!.auth.updateUser({ email: to }, { emailRedirectTo: callbackUrl(window.location.origin, "/settings?email=changed") });
+    setSaving(false);
+    if (error) {
+      setMsg({ kind: "error", text: authErrorMessage(error) });
+    } else {
+      setEditing(false);
+      setNext("");
+      setMsg({ kind: "ok", text: `Confirm the change from the emails we sent to ${email} and ${to}. Until then, sign in with ${email}.` });
+    }
+  };
+
+  return (
+    <Card title="Email">
+      <p className="text-sm">{email}</p>
+      {pending && <p className="text-xs text-muted mt-1">Waiting for confirmation: {pending}</p>}
+      <p className="text-xs text-muted mt-1">Used for sign-in only — never shown publicly.</p>
+      {editing ? (
+        <form onSubmit={save} className="mt-3 flex gap-2 max-w-sm">
+          <label htmlFor="settings-email" className="sr-only">New email</label>
+          <input
+            id="settings-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            placeholder="new email"
+            className="flex-1 h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-accent transition-colors"
+          />
+          <button type="submit" disabled={saving || !next.trim()} className="px-4 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            Change
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="px-3 h-10 rounded-lg text-sm text-muted hover:text-foreground">
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <button onClick={() => setEditing(true)} className="mt-3 text-sm text-accent underline underline-offset-2">
+          Change email
+        </button>
+      )}
+      {msg && (
+        <p role={msg.kind === "error" ? "alert" : "status"} className={`text-sm mt-2 ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
+          {msg.text}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function DeleteAccountCard({ confirmWord }: { confirmWord: string }) {
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [alsoLocal, setAlsoLocal] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const matches = typed.trim().toLowerCase() === confirmWord.toLowerCase() && confirmWord !== "";
+
+  const remove = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !matches) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const sb = getSupabase()!;
+      // a fresh token: the delete must not fail on an access token that just expired
+      const { data } = await sb.auth.refreshSession();
+      const token = data.session?.access_token ?? (await sb.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("Your session has ended. Sign in again, then delete the account.");
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: typed.trim() }),
+      });
+      if (!res.ok && res.status !== 204) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(
+          res.status === 503
+            ? "Account deletion isn't available on this deployment. Contact the site owner."
+            : res.status === 400
+              ? "The confirmation doesn't match."
+              : body?.message ?? "Could not delete the account. Please try again."
+        );
+      }
+      if (alsoLocal) clearLocalData();
+      await signOut();
+      router.replace("/?account=deleted");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-danger/40 bg-surface p-5" data-testid="delete-account">
+      <h2 className="text-xs uppercase tracking-wider text-danger mb-3">Delete account</h2>
+      <p className="text-sm text-muted">
+        Permanently deletes your account, username, rating, review schedule and leaderboard history. This can&apos;t be undone.
+      </p>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="mt-3 inline-flex items-center gap-2 px-4 h-10 rounded-lg border border-edge bg-surface text-sm text-danger hover:border-danger transition-colors"
+        >
+          <Trash2 size={15} /> Delete my account…
+        </button>
+      ) : (
+        <form onSubmit={remove} className="mt-4 space-y-3 max-w-sm">
+          <label htmlFor="delete-confirm" className="block text-sm">
+            Type <span className="font-mono font-medium">{confirmWord}</span> to confirm
+          </label>
+          <input
+            id="delete-confirm"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="w-full h-10 px-3 rounded-lg border border-edge bg-surface text-sm outline-none focus:border-danger transition-colors"
+            data-testid="delete-confirm"
+          />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={alsoLocal} onChange={(e) => setAlsoLocal(e.target.checked)} className="accent-[var(--accent)]" />
+            Also clear progress saved in this browser
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={!matches || busy}
+              className="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-danger text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              data-testid="delete-submit"
+            >
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <TriangleAlert size={14} />}
+              Delete forever
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setTyped("");
+                setError(null);
+              }}
+              className="px-4 h-10 rounded-lg text-sm text-muted hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
+        </form>
+      )}
+    </section>
+  );
+}
+
+function ChangePasswordCard({ email }: { email: string }) {
   const [current, setCurrent] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -190,7 +385,7 @@ function ChangePasswordCard() {
     });
     setSaving(false);
     if (error) {
-      setMsg({ kind: "error", text: error.message });
+      setMsg({ kind: "error", text: error.code === "invalid_credentials" || /current password/i.test(error.message) ? "Your current password is wrong." : authErrorMessage(error) });
     } else {
       setCurrent("");
       setNext("");
@@ -230,11 +425,30 @@ function ChangePasswordCard() {
           Update password
         </button>
         {msg && (
-          <p className={`text-sm ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
+          <p role={msg.kind === "error" ? "alert" : "status"} className={`text-sm ${msg.kind === "error" ? "text-danger" : "text-accent"}`}>
             {msg.text}
           </p>
         )}
       </form>
+      <p className="text-xs text-muted mt-3">
+        Don&apos;t know your current password (e.g. you sign in by email link)?{" "}
+        <button
+          type="button"
+          disabled={resetSent}
+          onClick={async () => {
+            setMsg(null);
+            const { error } = await getSupabase()!.auth.resetPasswordForEmail(email, { redirectTo: callbackUrl(window.location.origin, "/auth/reset") });
+            if (error) setMsg({ kind: "error", text: authErrorMessage(error) });
+            else {
+              setResetSent(true);
+              setMsg({ kind: "ok", text: `We emailed a link to ${email} to set a new password.` });
+            }
+          }}
+          className="underline underline-offset-2 hover:text-foreground disabled:opacity-60 disabled:no-underline"
+        >
+          Email me a reset link
+        </button>
+      </p>
     </Card>
   );
 }

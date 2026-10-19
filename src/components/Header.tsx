@@ -41,9 +41,7 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-edge bg-background/90 backdrop-blur">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight mr-4">
-          <span className="w-7 h-7 grid place-items-center rounded-md bg-accent text-accent-fg">
-            <Logo size={20} />
-          </span>
+          <Logo size={28} className="shrink-0" />
           <span className="hidden sm:inline">Openings Trainer</span>
         </Link>
 

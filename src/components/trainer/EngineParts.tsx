@@ -1,15 +1,15 @@
 "use client";
 /**
  * Engine features (Phase 6, stretch 2): the mistake ladder's step 4 (an
- * off-book move gets the engine's verdict and refutation) and the Stats tab's
- * eval bar. Stockfish loads on first use; without it both stay hidden and the
+ * off-book move gets the engine's verdict and refutation) and the eval bar
+ * beside the board. Stockfish loads on first use; without it both stay hidden and the
  * coach keeps "Not in this course's book."
  */
 import { useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { analyse, engineAvailable, type Analysis } from "@/lib/engine/engine";
-import { classify, formatScore, negate, pvToMoves, whiteShare, type Score } from "@/lib/engine/uci";
-import { setPref, usePrefs } from "@/lib/prefs";
+import { barLabel, classify, formatScore, negate, pvToMoves, whiteShare, type Score } from "@/lib/engine/uci";
+import { usePrefs } from "@/lib/prefs";
 import { useHydrated } from "@/lib/hooks";
 import { moveLabel, type TrainerSession } from "@/lib/trainer/session";
 import type { CourseLine } from "@/lib/openings-build/courses";
@@ -71,13 +71,17 @@ export function useEngineVerdict(s: TrainerSession, line: CourseLine, side: "whi
   }, [ver, enabled]);
 }
 
-/** Eval bar for the Stats tab: a toggle (off by default), hidden without the engine. */
-export function EvalPanel({ fen }: { fen: string }) {
+/**
+ * Vertical eval bar beside the board (on by default, toggled with E or the
+ * toolbar). White's share fills from White's edge, so it follows the board's
+ * orientation. Hidden without the engine.
+ */
+export function EvalBar({ fen, orientation }: { fen: string; orientation: "white" | "black" }) {
   const prefs = usePrefs();
   const hydrated = useHydrated();
   const [res, setRes] = useState<{ fen: string; a: Analysis | null } | null>(null);
   const [broken, setBroken] = useState(false);
-  const on = prefs.evalBar;
+  const on = prefs.showEval;
   useEffect(() => {
     if (!on) return;
     let alive = true;
@@ -93,30 +97,38 @@ export function EvalPanel({ fen }: { fen: string }) {
       clearTimeout(t);
     };
   }, [fen, on]);
-  if (!hydrated || !engineAvailable() || broken) return null;
+  if (!hydrated || !on || !engineAvailable() || broken) return null;
 
-  const current = res?.fen === fen ? res.a : null;
-  const turn = new Chess(fullFen(fen)).turn();
-  const whiteScore = current ? (turn === "w" ? current.score : negate(current.score)) : null;
-  const best = current?.pv.length ? pvToMoves(fullFen(fen), current.pv, 1)[0]?.san : undefined;
+  // keep the last result on screen while the next position is analysed (no flicker back to 50%)
+  const a = res?.a ?? null;
+  const fresh = res?.fen === fen;
+  const turn = res ? new Chess(fullFen(res.fen)).turn() : "w";
+  const whiteScore = a ? (turn === "w" ? a.score : negate(a.score)) : null;
+  const share = whiteScore ? whiteShare(whiteScore) : 0.5;
+  const best = fresh && a?.pv.length ? pvToMoves(fullFen(fen), a.pv, 1)[0]?.san : undefined;
+  const text = whiteScore ? formatScore(whiteScore) : "…";
+  const whiteAhead = share >= 0.5;
+  // White's end is at the bottom when White is at the bottom of the board
+  const whiteAtBottom = orientation === "white";
+  const labelAtBottom = whiteAhead === whiteAtBottom;
+  const title = a && fresh ? `${text} · depth ${a.depth}${best ? ` · best ${best}` : ""}` : "Evaluating…";
   return (
-    <div className="space-y-2" data-testid="eval-panel">
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <input type="checkbox" checked={on} onChange={(e) => setPref("evalBar", e.target.checked)} className="accent-[var(--accent)]" data-testid="eval-toggle" />
-        Engine evaluation <span className="text-xs text-muted">(Stockfish 19 lite)</span>
-      </label>
-      {on && (
-        <div aria-live="polite">
-          <div className="h-3 rounded overflow-hidden flex border border-edge" role="img" aria-label={whiteScore ? `Evaluation ${formatScore(whiteScore)}` : "Evaluating"}>
-            <div className="bg-[var(--bar-white)] transition-[width]" style={{ width: `${(whiteScore ? whiteShare(whiteScore) : 0.5) * 100}%` }} />
-            <div className="flex-1 bg-[var(--bar-black)]" />
-          </div>
-          <div className="mt-1 text-xs text-muted flex justify-between" data-testid="eval-text">
-            <span className="font-mono text-foreground">{whiteScore ? formatScore(whiteScore) : "…"}</span>
-            <span>{current ? `depth ${current.depth}${best ? ` · best ${best}` : ""}` : "thinking"}</span>
-          </div>
-        </div>
-      )}
+    <div
+      className="eval-bar relative w-2.5 sm:w-5 md:w-6 shrink-0 rounded overflow-hidden border border-edge bg-[var(--bar-black)] flex"
+      style={{ flexDirection: whiteAtBottom ? "column-reverse" : "column" }}
+      role="img"
+      aria-label={whiteScore ? `Engine evaluation ${text}` : "Engine evaluating"}
+      title={title}
+      data-testid="eval-bar"
+      data-depth={a && fresh ? a.depth : undefined}
+    >
+      <div className="eval-fill bg-[var(--bar-white)]" style={{ height: `${share * 100}%` }} />
+      <span
+        className={`max-sm:hidden absolute inset-x-0 text-center font-mono font-semibold leading-none text-[9px] md:text-[10px] tracking-tighter ${labelAtBottom ? "bottom-1" : "top-1"} ${whiteAhead ? "text-[#1c1b18]" : "text-[#e8e6e1]"}`}
+        data-testid="eval-text"
+      >
+        {whiteScore ? barLabel(whiteScore) : ""}
+      </span>
     </div>
   );
 }

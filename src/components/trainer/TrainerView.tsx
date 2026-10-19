@@ -8,12 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Keyboard, RotateCcw, Settings, ArrowUpDown, Check, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Keyboard, RotateCcw, Settings, ArrowUpDown, Check, Star, Gauge } from "lucide-react";
 import Board from "@/components/Board";
 import WinBar from "@/components/WinBar";
 import CoachFeed from "./CoachFeed";
-import { EvalPanel, useEngineVerdict } from "./EngineParts";
-import { getPrefs, usePrefs } from "@/lib/prefs";
+import { EvalBar, useEngineVerdict } from "./EngineParts";
+import { getPrefs, setPref, usePrefs } from "@/lib/prefs";
 import { useReducedMotion } from "@/lib/motion";
 import { playMoveSound } from "@/lib/sound";
 import { arrowShapes, badgeShape } from "@/lib/coach/brushes";
@@ -436,6 +436,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
         s.showPlan();
         after();
       } else if (k === "f" || k === "F") setFlipped((f) => !f);
+      else if (k === "e" || k === "E") setPref("showEval", !getPrefs().showEval);
       else if (k === "l" || k === "L") setTab((x) => (x === "lines" ? "coach" : "lines"));
       else if (k === "?") setHelp((h) => !h);
       else if (k === "m" || k === "M") document.getElementById("san-input")?.focus();
@@ -468,9 +469,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
           won’t count toward the leaderboard.
         </p>
       )}
-      <div className="grid gap-4 md:gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,640px)_minmax(360px,440px)] items-start">
+      <div className="grid gap-4 md:gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,672px)_minmax(360px,440px)] items-start">
         <div className="md:sticky md:top-4 min-w-0">
-          <div className={`board-theme-${prefs.boardTheme}`} data-testid="board">
+          <div className="flex items-stretch gap-1.5 sm:gap-2">
+          <EvalBar fen={fen} orientation={orientation} />
+          <div className={`board-theme-${prefs.boardTheme} flex-1 min-w-0`} data-testid="board">
             <Board
               fen={fen}
               orientation={orientation}
@@ -482,6 +485,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
               animationMs={reduced ? 0 : s.phase === "ff" ? 90 : 180}
               label={`Board, ${name.row?.name ?? "start position"}. ${side === "white" ? "You play White" : "You play Black"}.`}
             />
+          </div>
           </div>
 
           {/* name breadcrumb, cross-fading per ply */}
@@ -499,6 +503,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
             <IconBtn label="Back (←)" onClick={() => scrub(shownPly - 1)} disabled={shownPly === 0}><ChevronLeft size={18} /></IconBtn>
             <IconBtn label="Forward (→)" onClick={() => scrub(shownPly + 1)} disabled={live}><ChevronRight size={18} /></IconBtn>
             <IconBtn label="Flip board (F)" onClick={() => setFlipped((f) => !f)}><ArrowUpDown size={16} /></IconBtn>
+            <IconBtn label={prefs.showEval ? "Hide eval bar (E)" : "Show eval bar (E)"} pressed={prefs.showEval} onClick={() => setPref("showEval", !prefs.showEval)}><Gauge size={16} /></IconBtn>
             <IconBtn label="Keyboard shortcuts (?)" onClick={() => setHelp(true)}><Keyboard size={16} /></IconBtn>
             <Link href="/settings" aria-label="Settings" title="Settings" className="w-11 h-11 md:w-9 md:h-9 grid place-items-center rounded-md text-muted hover:text-foreground hover:bg-surface-2">
               <Settings size={16} />
@@ -601,12 +606,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
               />
             )}
             {tab === "lines" && <LinesTab course={course} current={line.idx} clickable={run.mode === "learn" || run.mode === "drill"} onPick={(li) => switchLine(li)} learned={learned} />}
-            {tab === "stats" && (
-              <div className="space-y-4">
-                <EvalPanel fen={fen} />
-                <StatsTab ds={ds} node={line.nodes[Math.min(shownPly, line.nodes.length - 1)]} />
-              </div>
-            )}
+            {tab === "stats" && <StatsTab ds={ds} node={line.nodes[Math.min(shownPly, line.nodes.length - 1)]} />}
           </div>
 
           <div className={sheetOpen ? "" : "max-md:hidden"}>
@@ -631,14 +631,15 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function IconBtn({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+function IconBtn({ label, onClick, disabled, pressed, children }: { label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; children: React.ReactNode }) {
   return (
     <button
       aria-label={label}
       title={label}
+      aria-pressed={pressed}
       onClick={onClick}
       disabled={disabled}
-      className="w-11 h-11 md:w-9 md:h-9 grid place-items-center rounded-md text-muted hover:text-foreground hover:bg-surface-2 disabled:opacity-40"
+      className={`w-11 h-11 md:w-9 md:h-9 grid place-items-center rounded-md hover:text-foreground hover:bg-surface-2 disabled:opacity-40 ${pressed ? "text-foreground" : "text-muted"}`}
     >
       {children}
     </button>
@@ -846,6 +847,7 @@ function ShortcutSheet({ onClose }: { onClose: () => void }) {
     ["S", "Show the move"],
     ["P", "Plan arrows (Learn)"],
     ["F", "Flip the board"],
+    ["E", "Show / hide the eval bar"],
     ["L", "Lines tab"],
     ["M", "Type a move (SAN), then Enter · Esc returns to the board"],
     ["Esc", "Skip the replay · back to live · close"],

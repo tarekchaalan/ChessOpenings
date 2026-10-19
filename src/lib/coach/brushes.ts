@@ -52,17 +52,22 @@ export function arrowShapes(arrows: Arrow[]): DrawShape[] {
   }));
 }
 
-/** ✓ / ✕ badge in the top-right corner of a square (chessground customSvg, 100×100 square). */
+/**
+ * ✓ / ✕ badge in the top-right corner of a square (chessground customSvg:
+ * the square is 0–100 on both axes). The circle stays inside the square,
+ * since the board clips anything past its edge on the h-file and 8th rank,
+ * and each glyph's bounding box is centred on the circle (80, 20).
+ */
 export function badgeShape(square: string, kind: "ok" | "bad"): DrawShape {
   const fill = kind === "ok" ? "#15781B" : "#b3261e";
   const glyph =
     kind === "ok"
-      ? '<path d="M75 15 l6 6 l12 -12" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-      : '<path d="M76 6 l12 12 M88 6 l-12 12" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>';
+      ? '<path d="M72 20.5 l5.5 5.5 l10.5 -11" stroke="#fff" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+      : '<path d="M73.5 13.5 l13 13 M86.5 13.5 l-13 13" stroke="#fff" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
   return {
     orig: square as Key,
     customSvg: {
-      html: `<g class="cg-badge cg-badge-${kind}"><circle cx="82" cy="12" r="15" fill="${fill}" stroke="#fff" stroke-width="2.5"/>${glyph}</g>`,
+      html: `<g class="cg-badge cg-badge-${kind}"><circle cx="80" cy="20" r="16.5" fill="${fill}" stroke="#fff" stroke-width="2.5"/>${glyph}</g>`,
     },
   };
 }

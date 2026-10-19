@@ -17,8 +17,15 @@ port = 54321
 schemas = ["public"]
 
 [auth]
-site_url = "https://chessopenings-nu.vercel.app/"
-additional_redirect_urls = ["https://chessopenings-nu.vercel.app/auth/callback"]
+# no trailing slash: the email templates build "{{ .SiteURL }}/auth/callback"
+site_url = "https://chessopenings.tarekchaalan.com"
+# `**` keeps the callback's ?next=… query; the vercel.app domain still serves
+# the app (and old emails link to it); localhost for `npm run dev`
+additional_redirect_urls = [
+  "https://chessopenings.tarekchaalan.com/auth/callback**",
+  "https://chessopenings-nu.vercel.app/auth/callback**",
+  "http://localhost:3000/auth/callback**",
+]
 minimum_password_length = 8
 password_requirements = "lower_upper_letters_digits_symbols"
 
@@ -32,3 +39,38 @@ double_confirm_changes = true
 secure_password_change = false
 otp_length = 8
 otp_expiry = 3600
+
+# Email links use token_hash (verified by /auth/callback on the server), so a
+# link opened on another device or in a mail app's browser still works. The
+# default templates use PKCE `?code=` links, which only the requesting browser
+# can finish. The magic-link email also carries the one-time code.
+[auth.email.template.confirmation]
+subject = "Confirm your email"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Reset your password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new email"
+content_path = "./supabase/templates/email_change.html"
+
+# Supabase's built-in mailer only delivers to the project's team members and
+# a few emails an hour, so auth email goes through Resend SMTP from the
+# verified tarekchaalan.com domain. The password is a sending-only Resend key
+# restricted to that domain ("chessopenings-supabase-smtp"); it is never
+# committed: set RESEND_API_KEY before `supabase config push`, or paste it in
+# the dashboard (Authentication → Emails → SMTP Settings).
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "do-not-reply@tarekchaalan.com"
+sender_name = "Openings Trainer"

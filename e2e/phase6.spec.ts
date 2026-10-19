@@ -159,7 +159,7 @@ test("catalog: a keyboard-focused card shows its focus ring (not clipped by cont
   await link.screenshot({ path: join(SHOTS, "catalog-focus.png") });
 });
 
-test("engine: an off-book blunder gets a verdict and a refutation; the eval bar is a Stats toggle", async ({ page }) => {
+test("engine: an off-book blunder gets a verdict and a refutation; the eval bar sits beside the board, on by default", async ({ page }) => {
   await page.goto("/train/ruy-lopez/closed/white?mode=recall");
   const trainer = page.getByTestId("trainer");
   const awaitAt = (ply: number) =>
@@ -190,11 +190,13 @@ test("engine: an off-book blunder gets a verdict and a refutation; the eval bar 
   await page.getByTestId("action-try").click();
   await expect(trainer).toHaveAttribute("data-phase", "await");
 
-  // eval bar: off by default, a toggle in Stats
-  await page.getByRole("tab", { name: "Stats" }).click();
-  const toggle = page.getByTestId("eval-toggle");
-  await expect(toggle).not.toBeChecked();
-  await toggle.check();
-  await expect(page.getByTestId("eval-text")).toContainText(/^[+−]?\d+\.\d|^#/, { timeout: 60_000 });
-  await expect(page.getByTestId("eval-text")).toContainText(/depth \d+/);
+  // eval bar: on by default beside the board, toggled with E or the toolbar
+  const bar = page.getByTestId("eval-bar");
+  await expect(bar).toBeVisible();
+  await expect(bar).toHaveAttribute("data-depth", /\d+/, { timeout: 60_000 });
+  await expect(bar).toHaveAttribute("aria-label", /Engine evaluation [+−]?(\d+\.\d|#)/);
+  await page.keyboard.press("e");
+  await expect(bar).toHaveCount(0);
+  await page.getByRole("button", { name: "Show eval bar (E)" }).click();
+  await expect(page.getByTestId("eval-bar")).toBeVisible();
 });

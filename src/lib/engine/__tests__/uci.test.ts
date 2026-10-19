@@ -1,6 +1,6 @@
 /** UCI parsing, score handling and mistake classification for the on-demand engine. */
 import { describe, expect, it } from "vitest";
-import { classify, formatScore, negate, parseBestmove, parseInfo, pvToMoves, toCp, whiteShare } from "../uci";
+import { barLabel, classify, formatScore, negate, parseBestmove, parseInfo, pvToMoves, toCp, whiteShare } from "../uci";
 
 describe("UCI output", () => {
   it("parses info lines with cp and mate scores, and ignores the rest", () => {
@@ -55,5 +55,14 @@ describe("mistake classification (learner's point of view)", () => {
     const moves = pvToMoves(fen, ["b7a6", "d2d4", "e5d4", "zz99"], 4);
     expect(moves.map((m) => m.san)).toEqual(["bxa6", "d4", "exd4"]);
     expect(moves[0]).toMatchObject({ from: "b7", to: "a6" });
+  });
+});
+
+describe("barLabel", () => {
+  it("is unsigned, one decimal under 10, M for mate", () => {
+    expect(barLabel({ cp: 34 })).toBe("0.3");
+    expect(barLabel({ cp: -250 })).toBe("2.5");
+    expect(barLabel({ cp: 1234 })).toBe("12");
+    expect(barLabel({ mate: -3 })).toBe("M3");
   });
 });
