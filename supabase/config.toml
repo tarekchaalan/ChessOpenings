@@ -29,9 +29,22 @@ additional_redirect_urls = [
 minimum_password_length = 8
 password_requirements = "lower_upper_letters_digits_symbols"
 
+# Values below that differ from the CLI defaults mirror production: a push
+# sends every [auth] setting, so an omitted one would reset the hosted project.
+[auth.rate_limit]
+# auth emails per hour, site-wide (the CLI default is 2)
+email_sent = 30
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 [auth.email]
 enable_signup = true
-enable_confirmations = false
+# new accounts must confirm their address before signing in
+enable_confirmations = true
+# minimum time between emails to the same address
+max_frequency = "1m0s"
 # confirm email changes on both the old and new address
 double_confirm_changes = true
 # password can be changed without a recent session (the app still sends
@@ -74,3 +87,8 @@ user = "resend"
 pass = "env(RESEND_API_KEY)"
 admin_email = "do-not-reply@tarekchaalan.com"
 sender_name = "Openings Trainer"
+
+# Free tier: vector buckets are a paid feature, and the CLI default (on) makes
+# `supabase config push` fail with 402.
+[storage.vector]
+enabled = false
