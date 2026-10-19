@@ -225,7 +225,7 @@ function Report({
           ))}
         </div>
         {!sum.games && status.phase !== "syncing" && (
-          <p className="text-sm text-muted mt-3">No rated games in the last 3 months in the time controls you import. Play a few, or include bullet below.</p>
+          <p className="text-sm text-muted mt-3">No rated games in the time controls you import. Play a few, or include bullet below.</p>
         )}
       </section>
 

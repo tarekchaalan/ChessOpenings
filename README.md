@@ -197,8 +197,8 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ## Insights (Chess.com + Lichess)
 
 `/insights` (and Settings → Account) links a Chess.com and/or Lichess
-username, imports the last 3 months of rated standard games (up to 200;
-rapid, blitz and classical, bullet optional) and shows where your openings
+username, imports the last 350 rated standard games, however old (rapid,
+blitz and classical, bullet optional) and shows where your openings
 leave book, repeat mistakes with an engine verdict, results by opening, and
 Fix / Fill / Grow recommendations, each linking into the trainer. Design:
 `docs/design/0006-account-insights.md`.

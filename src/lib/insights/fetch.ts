@@ -4,7 +4,7 @@
  * preflight. One request at a time per platform; on 429, wait 60 s and retry
  * once, then report. `fetch` and `sleep` are injectable for tests.
  */
-import { applyWindow, inScope, windowStart, type ImportScope } from "./filter";
+import { applyWindow, inScope, type ImportScope } from "./filter";
 import { chesscomRatings, monthsToFetch, parseChesscomGame, type ChesscomGame } from "./sources/chesscom";
 import { lichessProfile, parseLichessGame, splitNdjson, type LichessGame } from "./sources/lichess";
 import { isSkip, PLATFORM_NAME, type NormalGame, type Platform, type Ratings, type Skip } from "./types";
@@ -151,10 +151,9 @@ function collect(skipped: FetchResult["skipped"], scope: ImportScope, g: NormalG
 }
 
 async function fetchLichess(o: FetchOptions, deps: FetchDeps): Promise<FetchResult> {
-  const now = o.now ?? new Date();
-  const from = windowStart(o.scope, o.since, now);
+  // newest first; `since` only for an incremental sync
   const q = new URLSearchParams({
-    since: String(from.getTime() + 1),
+    ...(o.since ? { since: String(o.since.getTime() + 1) } : {}),
     max: String(o.scope.maxGames),
     rated: "true",
     perfType: o.scope.timeClasses.join(","),
@@ -195,14 +194,14 @@ async function fetchLichess(o: FetchOptions, deps: FetchDeps): Promise<FetchResu
   } else {
     (await res.text()).split("\n").map((l) => l.trim()).filter(Boolean).forEach(onLine);
   }
-  return { games: applyWindow(games, o.scope, o.since, now), skipped };
+  return { games: applyWindow(games, o.scope, o.since), skipped };
 }
 
 async function fetchChesscom(o: FetchOptions, deps: FetchDeps): Promise<FetchResult> {
   const now = o.now ?? new Date();
   const user = encodeURIComponent(o.username.toLowerCase());
   const { archives } = await json<{ archives?: string[] }>("chesscom", await get("chesscom", `${CHESSCOM}/player/${user}/games/archives`, deps, {}, o.signal));
-  const months = monthsToFetch(archives ?? [], windowStart(o.scope, o.since, now), now, o.scope.months + 1);
+  const months = monthsToFetch(archives ?? [], o.since, now, o.scope.maxMonths);
   const games: NormalGame[] = [];
   const skipped: FetchResult["skipped"] = {};
   let read = 0;
@@ -214,9 +213,9 @@ async function fetchChesscom(o: FetchOptions, deps: FetchDeps): Promise<FetchRes
       read++;
       collect(skipped, o.scope, parseChesscomGame(g, o.username), games);
     }
-    // newest month first: stop once the window is full of newer games
-    if (applyWindow(games, o.scope, o.since, now).length >= o.scope.maxGames) break;
+    // newest month first: stop once there are enough newer games
+    if (applyWindow(games, o.scope, o.since).length >= o.scope.maxGames) break;
   }
   o.onProgress?.({ read, kept: games.length, fraction: 1, label: `${months.length} months read` });
-  return { games: applyWindow(games, o.scope, o.since, now), skipped };
+  return { games: applyWindow(games, o.scope, o.since), skipped };
 }
