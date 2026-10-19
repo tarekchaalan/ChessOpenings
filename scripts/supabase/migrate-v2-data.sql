@@ -4,7 +4,9 @@
 -- Run once, AFTER supabase/migrations/0004_v2_schema.sql, supabase/seed/*.sql and
 -- scripts/supabase/seed-legacy-v1/*.sql (legacy_openings_v1 / legacy_row_answers_v1 /
 -- legacy_answers_v1; its last file checks the row counts), each set in file-name order:
+--   paste the whole file into the Supabase SQL editor and run it, or
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/supabase/migrate-v2-data.sql
+-- Plain SQL only (no psql meta-commands): it is one transaction either way.
 -- Re-running is a no-op (guarded on srs_cards_v1_backup existing).
 --
 -- Mapping (same tables and rules as the guest migration, src/lib/progress/migrate-v1.ts):
@@ -16,7 +18,6 @@
 --            (reps > 0) / Relearning (lapsed) / New, last_review = due − interval
 --   merge  = most reps (ties → earliest due) wins; lapses, seen, correct summed
 
-\set ON_ERROR_STOP on
 begin;
 
 do $$

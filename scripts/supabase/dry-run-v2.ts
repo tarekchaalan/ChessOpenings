@@ -56,6 +56,13 @@ function file(path: string): { ms: number; notices: string } {
   if (r.status !== 0) throw new Error(`${path}:\n${r.stderr}`);
   return { ms: Date.now() - t, notices: r.stderr.trim() };
 }
+/** the whole file as one simple-protocol query (like the SQL editor), not psql's statement splitting */
+function editor(path: string): { ms: number; notices: string } {
+  const t = Date.now();
+  const r = spawnSync("psql", [...PSQL, url, "-c", readFileSync(path, "utf8")], { encoding: "utf8", maxBuffer: 1 << 28 });
+  if (r.status !== 0) throw new Error(`${path} (as one query):\n${r.stderr}`);
+  return { ms: Date.now() - t, notices: r.stderr.trim() };
+}
 /** every .sql file of a directory, in name order (the generated seeds); total ms */
 function dir(path: string): number {
   return readdirSync(path)
@@ -160,7 +167,9 @@ const meta = JSON.parse(readFileSync(join(ROOT, "public/data/openings.v2.meta.js
 check("dataset_version = the build's outputHash", sql("select hash from public.dataset_version") === meta.outputHash);
 
 // 3. data migration
-const mig = file(join(ROOT, "scripts/supabase/migrate-v2-data.sql"));
+// sent as ONE query string, the way the Supabase SQL editor runs a pasted file
+// (catches psql-only syntax such as backslash commands)
+const mig = editor(join(ROOT, "scripts/supabase/migrate-v2-data.sql"));
 timings.push(["migrate-v2-data.sql", mig.ms]);
 const after = counts();
 const report = Object.fromEntries(json<{ k: string; v: number }[]>("select k, v from public.migration_report_v2 order by k").map((r) => [r.k, Number(r.v)]));
@@ -205,7 +214,7 @@ const guestCp = Object.values(guest.courseProgress).map((p) => ({ course_id: p.c
 check("course progress = guest migration", JSON.stringify(cp) === JSON.stringify(guestCp), cp.map((p) => `${p.course_id} ${p.seen}`).join(", "));
 
 // idempotence + reseed safety
-const rerun = file(join(ROOT, "scripts/supabase/migrate-v2-data.sql"));
+const rerun = editor(join(ROOT, "scripts/supabase/migrate-v2-data.sql"));
 check("re-running the data migration is a no-op", JSON.stringify(counts()) === JSON.stringify(after) && /already applied/.test(rerun.notices));
 dir(join(ROOT, "supabase/seed"));
 const afterReseed = counts();
