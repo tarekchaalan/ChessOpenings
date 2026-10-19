@@ -28,6 +28,7 @@ import {
 import { useLatestChanges } from "@/lib/changelog-client";
 import { courseProgressInfo, lineProgress, reviewMinutes, type LineStatus } from "@/lib/catalog-client";
 import { reviewQueue, tierAddsPerDay, tierLines as tierLineList, type TierKey } from "@/lib/trainer/plan";
+import { defaultTier, TIER_LABEL } from "@/lib/rating/level";
 import { allCards, allCourseProgress, courseProgress, overridesFor, setOverride, useProgressVersion } from "@/lib/progress/store";
 import { linesLearnedToday } from "@/lib/srs/workload";
 import { usePrefs } from "@/lib/prefs";
@@ -35,7 +36,6 @@ import { arrowShapes, type Arrow } from "@/lib/coach/brushes";
 import type { CourseLine } from "@/lib/openings-build/courses";
 import type { Dataset } from "@/lib/openings";
 
-const TIER_LABEL: Record<TierKey, string> = { essentials: "Essentials", core: "Core", complete: "Complete" };
 
 export default function CourseClient({ hub, system, side }: { hub: string; system: string; side: Side }) {
   const { ds, error } = useDataset();
@@ -89,7 +89,9 @@ function CourseView({ ds, hub, system }: { ds: Dataset; hub: RawHubSummary; syst
   // eslint-disable-next-line react-hooks/exhaustive-deps -- overrides are compared by value
   const course = useMemo(() => loadCourse(ds, system, overrides)!, [ds, system, ovKey]);
   const model = modelOf(ds);
-  const [tierPick, setTier] = useState<TierKey>("complete");
+  // starts at the depth for the player's level (ADR 0008; stored in this browser, so after hydration), else everything
+  const [picked, setTier] = useState<TierKey | null>(null);
+  const tierPick: TierKey = picked ?? (hydrated ? defaultTier() : "complete");
   const [view, setView] = useState<"chapters" | "tree" | "explorer">("chapters");
   const { entry } = useLatestChanges();
   const fresh = new Set(entry?.courses[course.id]?.added ?? []);

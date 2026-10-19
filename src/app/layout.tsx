@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import DataUpdateToast from "@/components/DataUpdateToast";
 import ProgressMaintenance from "@/components/ProgressMaintenance";
 import ServerSync from "@/components/ServerSync";
+import SetupGate from "@/components/setup/SetupGate";
 import { MotionSync } from "@/lib/motion";
 
 const geistSans = Geist({
@@ -57,6 +58,7 @@ export default function RootLayout({
             <DataUpdateToast />
             <ProgressMaintenance />
             <ServerSync />
+            <SetupGate />
             <MotionSync />
           </AuthProvider>
         </ThemeProvider>

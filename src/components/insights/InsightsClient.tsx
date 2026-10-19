@@ -14,7 +14,8 @@ import { useAuth } from "@/lib/supabase/AuthProvider";
 import { useDataset } from "@/lib/hooks";
 import { moveLabel } from "@/lib/openings-build/courses";
 import { analyse, byOpening, repeatDeviations, summary, type OpeningRow, type RepeatGroup } from "@/lib/insights/aggregate";
-import { playerBand } from "@/lib/insights/bands";
+import { bandFromEstimate, bandSource, playerBand } from "@/lib/insights/bands";
+import { usePlayerLevel } from "@/lib/setup/client";
 import { cancelSync, clearGuest, guestData, saveGuestToAccount, syncStale, useInsights, type InsightsStatus } from "@/lib/insights/client";
 import { recommend, type Rec } from "@/lib/insights/recommend";
 import { useVerdicts, verdictKey, type GroupVerdict } from "@/lib/insights/verdicts";
@@ -188,7 +189,9 @@ function Report({
   const repeats = useMemo(() => repeatDeviations(ds, games), [ds, games]);
   const sum = useMemo(() => summary(games), [games]);
   const ratings = useMemo(() => Object.fromEntries(PLATFORMS.filter((p) => accounts[p]).map((p) => [p, accounts[p]!.ratings])) as Partial<Record<Platform, Ratings>>, [accounts]);
-  const band = useMemo(() => playerBand(games, ratings), [games, ratings]);
+  // the imported games' platform band, else the estimated Elo's level (ADR 0008)
+  const { estimate } = usePlayerLevel();
+  const band = useMemo(() => playerBand(games, ratings) ?? (estimate ? bandFromEstimate(estimate.elo) : null), [games, ratings, estimate]);
   const recs = useMemo(() => recommend(ds, games, rows, band), [ds, games, rows, band]);
 
   return (
@@ -261,7 +264,9 @@ function Recommendations({ recs, band }: { recs: Rec[]; band: ReturnType<typeof 
       </h2>
       <p className="text-xs text-muted mb-3">
         {band
-          ? `Your level: ${band.name} (${PLATFORM_NAME[band.platform]} ${band.timeClass} ${band.rating}${band.provisional ? ", provisional" : ""}). Bands are per platform; ratings aren't converted.`
+          ? band.platform
+            ? `Your level: ${band.name} (${bandSource(band)}). Bands are per platform; ratings aren't converted.`
+            : `Your level: ${band.name} (${bandSource(band)}), until there are enough imported games to place you.`
           : "No rating for the time control you play most, so suggestions aren't tuned to a level."}{" "}
         Grow suggestions are based on how common an opening is and your style, not on win rates at your level.
       </p>

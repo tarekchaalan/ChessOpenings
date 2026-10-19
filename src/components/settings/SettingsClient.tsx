@@ -28,6 +28,8 @@ import { authErrorMessage, callbackUrl, USERNAME_RE, USERNAME_RULE } from "@/lib
 import LinkedAccounts from "@/components/insights/LinkedAccounts";
 import { useInsights } from "@/lib/insights/client";
 import PrivacySettings from "./PrivacySettings";
+import { openSetup, usePlayerLevel } from "@/lib/setup/client";
+import { LevelCard } from "@/components/setup/LevelCards";
 
 type Tab = "account" | "privacy" | "preferences" | "data";
 
@@ -64,6 +66,7 @@ export default function SettingsClient() {
       {tab === "account" && (
         <div className="space-y-4">
           <AccountTab />
+          <LevelSettings />
           <ChessAccountsCard />
         </div>
       )}
@@ -791,6 +794,25 @@ function ChessAccountsCard() {
         .
       </p>
       {ins.loaded ? <LinkedAccounts accounts={ins.data.accounts} status={ins.status} signedIn={!!user && !ins.serverless} showStatus /> : <div className="h-24 rounded bg-surface-2 animate-pulse" />}
+    </Card>
+  );
+}
+
+// ── Level (ADR 0008) ──────────────────────────────────────────────────────
+function LevelSettings() {
+  const { estimate, level, setup, loaded, signedIn } = usePlayerLevel();
+  if (!signedIn || !loaded) return null;
+  if (estimate && level) return <LevelCard estimate={estimate} level={level} />;
+  return (
+    <Card title="Your level">
+      <p className="text-sm text-muted mb-3">
+        {setup?.skipped
+          ? "You skipped setup, so suggestions aren't tuned to your level yet."
+          : "Link Lichess or Chess.com, or tell us your level, to get an estimated Elo and suggestions that fit."}
+      </p>
+      <button type="button" onClick={openSetup} className="inline-flex items-center px-4 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90">
+        Run setup
+      </button>
     </Card>
   );
 }
