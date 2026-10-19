@@ -19,7 +19,8 @@
     "corpus:build": "tsx scripts/openings/corpus.ts",
     "ingest": "tsx scripts/ingest.ts",
     "seed:remote": "tsx scripts/seed-remote.ts",
-    "engine:copy": "tsx scripts/engine/copy-engine.ts"
+    "engine:copy": "tsx scripts/engine/copy-engine.ts",
+    "brand:render": "node scripts/brand/render-logo.mjs"
   },
   "dependencies": {
     "@supabase/server": "^1.2.0",

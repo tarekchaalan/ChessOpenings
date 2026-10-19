@@ -1,10 +1,11 @@
 import { useId } from "react";
 
 /**
- * Brand mark, shared with the Chess Analysis iOS app: the cburnett knight as
- * one forest-green silhouette with a light rim, on a charcoal tile. Colours
- * are sampled from the app icon (ios/chess-analysis/Logo.png); src/app/icon.svg
- * is the same drawing for the favicon.
+ * Brand mark, from the Chess Analysis iOS app icon: the cburnett knight as one
+ * forest-green silhouette with a light-green rim, on a charcoal tile. The
+ * knight is a few shades lighter than the app icon's so it reads against the
+ * tile at small sizes. src/app/icon.svg is the same drawing (favicon), and
+ * scripts/brand/render-logo.mjs renders the PNGs from it.
  */
 export const KNIGHT_PATHS = [
   "M22 10C32.5 11 38.5 18 38 39L15 39C15 30 25 32.5 23 18",
@@ -22,16 +23,16 @@ export default function Logo({ size = 24, className }: { size?: number; classNam
           <stop offset="1" stopColor="#131314" />
         </linearGradient>
         <linearGradient id={`${id}-knight`} gradientUnits="userSpaceOnUse" x1="38" y1="7" x2="11" y2="39">
-          <stop offset="0" stopColor="#23501a" />
-          <stop offset="0.55" stopColor="#0f2a07" />
-          <stop offset="1" stopColor="#0b1707" />
+          <stop offset="0" stopColor="#3a7a2b" />
+          <stop offset="0.55" stopColor="#1e4d14" />
+          <stop offset="1" stopColor="#14350d" />
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="14" fill={`url(#${id}-tile)`} />
       {/* stroke both paths, then fill over them: only the silhouette's outer rim stays visible */}
       <g transform="translate(7.1 5.2) scale(1.1)" strokeLinejoin="round" strokeLinecap="round">
         {KNIGHT_PATHS.map((d) => (
-          <path key={`rim${d.length}`} d={d} fill="none" stroke="#4f6e49" strokeWidth="1.7" />
+          <path key={`rim${d.length}`} d={d} fill="none" stroke="#8cc474" strokeWidth="2.2" />
         ))}
         {KNIGHT_PATHS.map((d) => (
           <path key={`fill${d.length}`} d={d} fill={`url(#${id}-knight)`} />
