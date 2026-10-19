@@ -39,6 +39,10 @@ create table if not exists public.linked_accounts (
   last_game_at   timestamptz,
   primary key (user_id, platform)
 );
+-- sync rate limit (30 per platform per hour), kept by the /api/insights route.
+-- Added separately so a project that ran an earlier draft of 0006 gets them too.
+alter table public.linked_accounts add column if not exists sync_window_start timestamptz;
+alter table public.linked_accounts add column if not exists sync_calls int not null default 0 check (sync_calls >= 0);
 
 create table if not exists public.game_summaries (
   user_id       uuid not null references public.profiles (id) on delete cascade,
