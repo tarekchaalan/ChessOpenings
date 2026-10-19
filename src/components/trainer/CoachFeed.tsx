@@ -25,6 +25,7 @@ const ACTION_LABEL: Record<ActionKind, string> = {
   "make-mine": "Make it my move",
   explore: "Explore that line",
   "skip-ff": "Skip to new moves",
+  refute: "Show refutation",
 };
 
 const WHO: Record<NonNullable<FeedMsg["who"]>, string> = { you: "YOU", white: "WHITE", black: "BLACK" };

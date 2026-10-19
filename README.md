@@ -165,3 +165,11 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
   at runtime and falls back silently to the seeded stats when unreachable.
 - Guest progress is not merged into an account on sign-in (by design: the
   leaderboard only counts server-validated answers).
+
+## Engine
+
+Stockfish 19 (lite, single-threaded WASM, from the [`stockfish`](https://github.com/nmrugg/stockfish.js) npm package) powers the trainer's eval bar (Stats tab, off by default) and the engine verdict and refutation for off-book mistakes. `predev`/`prebuild` copy it into `public/engine/` (gitignored, 1.85 MB, 1.2 MB gzipped). The browser loads it in a Web Worker only on first use. Without it, both features stay hidden.
+
+## Third-party licences
+
+[chessground](https://github.com/lichess-org/chessground) and [Stockfish](https://github.com/official-stockfish/Stockfish) (via [stockfish.js](https://github.com/nmrugg/stockfish.js)) are GPL-3.0. Distributing the app with them carries the GPL-3.0's obligations. Stockfish's licence ships next to the engine as `/engine/COPYING.txt`, and the corresponding source for both is linked above.

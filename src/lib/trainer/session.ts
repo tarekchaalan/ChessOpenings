@@ -33,7 +33,7 @@ export type MsgKind =
   | "hint"
   | "complete";
 
-export type ActionKind = "try" | "show" | "make-mine" | "explore" | "skip-ff";
+export type ActionKind = "try" | "show" | "make-mine" | "explore" | "skip-ff" | "refute";
 
 export interface BranchOption {
   san: string;
@@ -60,7 +60,9 @@ export interface FeedMsg {
   /** line-complete details */
   complete?: { moves: string; learned: number; next: { san: string; pct: number }[]; plan?: string };
   /** mistake details (the move stays on the board) */
-  wrong?: { san: string; from: string; to: string; soft: boolean; theoryName?: string };
+  wrong?: { san: string; from: string; to: string; soft: boolean; theoryName?: string; offBook?: boolean };
+  /** engine refutation of a wrong move: the opponent's best reply line (2–4 plies) from the wrong move's position */
+  refute?: { moves: { san: string; from: string; to: string; fen: string }[] };
 }
 
 export type Phase = "ff" | "await" | "wrong" | "opponent" | "end";
@@ -638,7 +640,7 @@ export class TrainerSession {
       title: `${label} ✕`,
       text,
       actions: ["try", "show"],
-      wrong: { ...base, soft: false },
+      wrong: { ...base, soft: false, ...(stat ? {} : { offBook: true }) },
     });
     // re-teach goes right under the verdict, as its own message
     if (reteach) this.post({ kind: "hint", ply, title: "Re-teach", text: reteach });
@@ -735,6 +737,30 @@ export class TrainerSession {
       ...(planArrows.length ? { arrows: planArrows } : {}),
     });
     if (planArrows.length) this.arrows = planArrows;
+  }
+
+  /**
+   * The engine's verdict on an off-book mistake (mistake ladder step 4): posted
+   * while that mistake is still on the board, as the newest mistake message, so
+   * it carries the live actions (try / show / refute). False when it's stale.
+   */
+  engineVerdict(at: number, v: { title: string; text: string; arrows: Arrow[]; refute: FeedMsg["refute"] }): boolean {
+    const w = this.wrong;
+    if (this.phase !== "wrong" || !w || w.soft || w.at !== at) return false;
+    const last = [...this.feed].reverse().find((m) => m.kind === "mistake");
+    this.post({
+      kind: "mistake",
+      ply: this.ply,
+      who: "you",
+      title: v.title,
+      text: v.text,
+      arrows: v.arrows,
+      actions: ["try", "show", ...(v.refute?.moves.length ? (["refute"] as const) : [])],
+      ...(last?.wrong ? { wrong: last.wrong } : {}),
+      ...(v.refute ? { refute: v.refute } : {}),
+    });
+    this.arrows = v.arrows;
+    return true;
   }
 
   /** A plain coach note at the live ply (e.g. "4.Bxc6 is now your move"). */

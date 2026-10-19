@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Keyboard, RotateCcw,
 import Board from "@/components/Board";
 import WinBar from "@/components/WinBar";
 import CoachFeed from "./CoachFeed";
+import { EvalPanel, useEngineVerdict } from "./EngineParts";
 import { getPrefs, usePrefs } from "@/lib/prefs";
 import { useReducedMotion } from "@/lib/motion";
 import { playMoveSound } from "@/lib/sound";
@@ -154,6 +155,15 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
     flush();
     bump();
   }, [flush, bump]);
+  // mistake ladder step 4: the engine's verdict on an off-book move
+  useEngineVerdict(s, line, side, ver, after, true);
+  // [Show refutation]: the engine line plays out on the board, then the board returns
+  const [preview, setPreview] = useState<{ moves: { from: string; to: string; fen: string }[]; i: number } | null>(null);
+  useEffect(() => {
+    if (!preview) return;
+    const t = setTimeout(() => setPreview(preview.i + 1 < preview.moves.length ? { ...preview, i: preview.i + 1 } : null), preview.i + 1 < preview.moves.length ? 800 : 1400);
+    return () => clearTimeout(t);
+  }, [preview]);
 
   const moverColor = (ply: number) => (ply % 2 === 0 ? "white" : "black");
 
@@ -267,6 +277,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
         s.skipFF();
         after();
       } else if (a === "make-mine") makeMine();
+      else if (a === "refute" && m.refute?.moves.length) setPreview({ moves: m.refute.moves, i: 0 });
       else if (a === "explore" && m.wrong) {
         const moves = [...line.sans.slice(0, m.ply), m.wrong.san].join(",");
         router.push(`/explore?line=${encodeURIComponent(moves)}`);
@@ -298,8 +309,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const livePly = s.ply;
   const shownPly = view ? view.ply : livePly;
   const viewMsg = view?.id ? s.feed.find((m) => m.id === view.id) ?? null : null;
-  const fen = view ? s.fens[view.ply] : s.wrong ? s.wrong.fen : s.fens[livePly];
-  const lastMove: [string, string] | null = view
+  const pv = preview ? preview.moves[preview.i] : null;
+  const fen = pv ? pv.fen : view ? s.fens[view.ply] : s.wrong ? s.wrong.fen : s.fens[livePly];
+  const lastMove: [string, string] | null = pv
+    ? [pv.from, pv.to]
+    : view
     ? view.ply > 0
       ? [s.moves[view.ply - 1].from, s.moves[view.ply - 1].to]
       : null
@@ -309,6 +323,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
         ? [s.moves[livePly - 1].from, s.moves[livePly - 1].to]
         : null;
   const shapes = useMemo(() => {
+    if (preview) return []; // the refutation plays out on a clean board
     if (view) return arrowShapes(viewMsg?.arrows ?? []);
     return [
       ...arrowShapes(s.arrows),
@@ -317,10 +332,10 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
     ];
     // the session mutates in place; `ver` is its version
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ver, view, viewMsg]);
-  const tints = view ? viewMsg?.tints : s.tints;
+  }, [ver, view, viewMsg, preview]);
+  const tints = preview ? undefined : view ? viewMsg?.tints : s.tints;
   const orientation = flipped ? (side === "white" ? "black" : "white") : side;
-  const canMove = live && s.phase === "await";
+  const canMove = live && s.phase === "await" && !preview;
 
   const scrub = useCallback(
     (ply: number) => {
@@ -586,7 +601,12 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
               />
             )}
             {tab === "lines" && <LinesTab course={course} current={line.idx} clickable={run.mode === "learn" || run.mode === "drill"} onPick={(li) => switchLine(li)} learned={learned} />}
-            {tab === "stats" && <StatsTab ds={ds} node={line.nodes[Math.min(shownPly, line.nodes.length - 1)]} />}
+            {tab === "stats" && (
+              <div className="space-y-4">
+                <EvalPanel fen={fen} />
+                <StatsTab ds={ds} node={line.nodes[Math.min(shownPly, line.nodes.length - 1)]} />
+              </div>
+            )}
           </div>
 
           <div className={sheetOpen ? "" : "max-md:hidden"}>

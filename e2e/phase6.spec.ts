@@ -158,3 +158,43 @@ test("catalog: a keyboard-focused card shows its focus ring (not clipped by cont
   expect(fits).toBe(true);
   await link.screenshot({ path: join(SHOTS, "catalog-focus.png") });
 });
+
+test("engine: an off-book blunder gets a verdict and a refutation; the eval bar is a Stats toggle", async ({ page }) => {
+  await page.goto("/train/ruy-lopez/closed/white?mode=recall");
+  const trainer = page.getByTestId("trainer");
+  const awaitAt = (ply: number) =>
+    page.waitForFunction((p) => {
+      const d = (document.querySelector('[data-testid="trainer"]') as HTMLElement | null)?.dataset;
+      return d?.phase === "await" && Number(d.ply) === p;
+    }, ply, { timeout: 60_000 });
+  await awaitAt(0);
+  await page.getByTestId("san-input").fill("e4");
+  await page.getByTestId("san-input").press("Enter");
+  await awaitAt(2);
+  // 2.Ba6?? is in no master game: the engine weighs in
+  await page.getByTestId("san-input").fill("Ba6");
+  await page.getByTestId("san-input").press("Enter");
+  await expect(trainer).toHaveAttribute("data-phase", "wrong");
+  const verdict = page.locator('[data-kind="mistake"]').filter({ hasText: "(engine)" });
+  await expect(verdict).toHaveCount(1, { timeout: 60_000 });
+  await expect(verdict).toContainText(/Blunder/);
+  await expect(verdict).toContainText(/bxa6|Nxa6/);
+  await page.screenshot({ path: join(SHOTS, "engine-verdict.png") });
+  // [Show refutation]: the line plays on the board (the bishop is taken), then the board returns
+  const pieces = page.locator(".board-cg cg-board piece");
+  const before = await pieces.count();
+  await page.getByTestId("action-refute").click();
+  await expect.poll(() => pieces.count(), { timeout: 10_000 }).toBeLessThan(before);
+  await expect.poll(() => pieces.count(), { timeout: 15_000 }).toBe(before);
+  // Try again still works afterwards
+  await page.getByTestId("action-try").click();
+  await expect(trainer).toHaveAttribute("data-phase", "await");
+
+  // eval bar: off by default, a toggle in Stats
+  await page.getByRole("tab", { name: "Stats" }).click();
+  const toggle = page.getByTestId("eval-toggle");
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  await expect(page.getByTestId("eval-text")).toContainText(/^[+−]?\d+\.\d|^#/, { timeout: 60_000 });
+  await expect(page.getByTestId("eval-text")).toContainText(/depth \d+/);
+});

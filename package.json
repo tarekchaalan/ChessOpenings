@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "tsx scripts/openings/build.ts --allow-errors",
+    "predev": "tsx scripts/engine/copy-engine.ts && tsx scripts/openings/build.ts --allow-errors",
     "dev": "tsx scripts/openings/dev.ts",
     "dev:next": "next dev",
-    "prebuild": "tsx scripts/openings/build.ts",
+    "prebuild": "tsx scripts/engine/copy-engine.ts && tsx scripts/openings/build.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint && npm run openings:check",
@@ -18,7 +18,8 @@
     "openings:check": "tsx scripts/openings/check.ts",
     "corpus:build": "tsx scripts/openings/corpus.ts",
     "ingest": "tsx scripts/ingest.ts",
-    "seed:remote": "tsx scripts/seed-remote.ts"
+    "seed:remote": "tsx scripts/seed-remote.ts",
+    "engine:copy": "tsx scripts/engine/copy-engine.ts"
   },
   "dependencies": {
     "@supabase/server": "^1.2.0",
@@ -31,6 +32,7 @@
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "stockfish": "19.0.1",
     "ts-fsrs": "^5.4.2",
     "zustand": "^5.0.14"
   },
