@@ -19,7 +19,7 @@ import { cancelSync, clearGuest, guestData, saveGuestToAccount, syncStale, useIn
 import { recommend, type Rec } from "@/lib/insights/recommend";
 import { useVerdicts, verdictKey, type GroupVerdict } from "@/lib/insights/verdicts";
 import { MIN_GAMES } from "@/lib/insights/weights";
-import { PLATFORM_NAME, PLATFORMS, TIME_CLASSES, type Platform, type Ratings, type Side } from "@/lib/insights/types";
+import { PLATFORM_NAME, PLATFORMS, TIME_CLASSES, type LinkedAccount, type Platform, type Ratings, type Side } from "@/lib/insights/types";
 import type { Dataset } from "@/lib/openings";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -177,7 +177,7 @@ function Report({
 }: {
   ds: Dataset;
   games: Parameters<typeof analyse>[1];
-  accounts: Partial<Record<Platform, { ratings: Ratings; username: string }>>;
+  accounts: Partial<Record<Platform, LinkedAccount>>;
   status: InsightsStatus;
   signedIn: boolean;
 }) {
@@ -237,7 +237,7 @@ function Report({
         <h2 id="ins-accounts" className="text-xs uppercase tracking-wider text-muted mb-3">
           Linked accounts
         </h2>
-        <LinkedAccounts accounts={accounts as never} status={status} signedIn={signedIn} />
+        <LinkedAccounts accounts={accounts} status={status} signedIn={signedIn} />
       </section>
     </div>
   );
