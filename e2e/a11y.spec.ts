@@ -58,6 +58,7 @@ const PAGES: { name: string; url: string; ready: string; then?: (p: Page) => Pro
   { name: "settings: preferences", url: "/settings", ready: "h1", then: async (p) => p.getByRole("button", { name: "Preferences" }).click() },
   { name: "settings: data", url: "/settings", ready: "h1", then: async (p) => p.getByRole("button", { name: "Data" }).click() },
   { name: "leaderboard", url: "/leaderboard", ready: "h1" },
+  { name: "insights (no account linked)", url: "/insights", ready: '[data-testid="insights-onboarding"]' },
   { name: "changes", url: "/changes", ready: "h1" },
   { name: "sign in", url: "/auth", ready: "main" },
 ];

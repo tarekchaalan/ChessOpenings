@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-19T03:36:26.236Z",
+  "measuredAt": "2026-10-19T12:46:25.379Z",
   "rows": [
     {
       "page": "dashboard",
@@ -83,6 +83,11 @@
     },
     {
       "page": "leaderboard",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "insights (no account linked)",
       "theme": "light",
       "violations": []
     },
@@ -178,6 +183,11 @@
     },
     {
       "page": "leaderboard",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "insights (no account linked)",
       "theme": "dark",
       "violations": []
     },

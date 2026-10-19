@@ -191,6 +191,31 @@ supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 - Guest progress is not merged into an account on sign-in (by design: the
   leaderboard only counts server-validated answers).
 
+## Insights (Chess.com + Lichess)
+
+`/insights` (and Settings → Account) links a Chess.com and/or Lichess
+username, imports the last 3 months of rated standard games (up to 200;
+rapid, blitz and classical, bullet optional) and shows where your openings
+leave book, repeat mistakes with an engine verdict, results by opening, and
+Fix / Fill / Grow recommendations, each linking into the trainer. Design:
+`docs/design/0006-account-insights.md`.
+
+- The **browser** fetches the games straight from lichess.org and
+  api.chess.com (both allow cross-origin requests), one request at a time per
+  platform, so imports count against the player's own rate limits, not the
+  deployment's.
+- Only derived summaries are kept: the first *n* opening moves (n = the
+  longest theory path, 36 plies today) plus where and how the game left book.
+  Guests keep them in `localStorage`; signed-in players save them through
+  `POST /api/insights/{link,sync,unlink}` into `linked_accounts` and
+  `game_summaries` (migration `0006`, owner-only RLS, cascading from the
+  profile, so unlinking or deleting the account removes them).
+- No new environment variables: the routes use the same `SUPABASE_*` server
+  variables as `/api/train`. Without them, Insights works in the browser only.
+- `npx tsx scripts/insights/live-check.ts [lichessUser] [chesscomUser]` runs a
+  live import against real accounts (not part of `npm test`, which only uses
+  captured fixtures).
+
 ## Engine
 
 Stockfish 19 (lite, single-threaded WASM, from the [`stockfish`](https://github.com/nmrugg/stockfish.js) npm package) powers the trainer's eval bar (beside the board, on by default; E or the toolbar toggles it) and the engine verdict and refutation for off-book mistakes. `predev`/`prebuild` copy it into `public/engine/` (gitignored, 1.85 MB, 1.2 MB gzipped). The browser loads it in a Web Worker only on first use. Without it, both features stay hidden.

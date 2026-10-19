@@ -6,7 +6,7 @@
  * teaser when a backend is configured.
  */
 import Link from "next/link";
-import { AlarmClock, BookOpen, Flame, RefreshCw, Target, Trophy } from "lucide-react";
+import { AlarmClock, BookOpen, Flame, LineChart, RefreshCw, Target, Trophy } from "lucide-react";
 import { useAuth } from "@/lib/supabase/AuthProvider";
 import { useDataset, useHydrated } from "@/lib/hooks";
 import { findSystem, hubSummary, loadCourse, parseCourseId } from "@/lib/courses-client";
@@ -19,6 +19,9 @@ import { useLatestChanges } from "@/lib/changelog-client";
 import { summarizeEntry } from "@/lib/openings-build/diff";
 import { ContinueRow } from "@/components/openings/CatalogClient";
 import type { Dataset } from "@/lib/openings";
+import { useInsights } from "@/lib/insights/client";
+import { analyse as analyseGames, repeatDeviations } from "@/lib/insights/aggregate";
+import { knownVerdicts } from "@/lib/insights/verdicts";
 
 const DAY = 86400_000;
 
@@ -26,7 +29,7 @@ export default function Dashboard() {
   const { ds } = useDataset();
   useProgressVersion();
   const hydrated = useHydrated();
-  const { user, username, configured } = useAuth();
+  const { user, username, configured, loading: authLoading } = useAuth();
   const { entry } = useLatestChanges();
 
   if (!ds || !hydrated) {
@@ -99,6 +102,7 @@ export default function Dashboard() {
           <RepeatOffenders ds={ds} cards={cards} />
         </div>
         <aside className="space-y-4">
+          <InsightsCard ds={ds} userId={user?.id ?? null} authLoading={authLoading} />
           {entry && (
             <section className="rounded-lg border border-edge bg-surface p-4" data-testid="data-news">
               <h2 className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted">
@@ -131,6 +135,36 @@ export default function Dashboard() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Insights teaser: repeat deviations from the imported games ("3 positions you keep getting wrong"). */
+function InsightsCard({ ds, userId, authLoading }: { ds: Dataset; userId: string | null; authLoading: boolean }) {
+  const ins = useInsights(userId, authLoading);
+  const groups = ins.loaded && ins.data.games.length ? repeatDeviations(ds, analyseGames(ds, ins.data.games)) : [];
+  const verdicts = knownVerdicts(groups);
+  const wrong = verdicts.filter((v) => v && v.verdict !== "playable").length;
+  const linked = Object.keys(ins.data.accounts).length > 0;
+  return (
+    <section className="rounded-lg border border-edge bg-surface p-4" data-testid="insights-card">
+      <h2 className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted">
+        <LineChart size={13} aria-hidden /> Insights
+      </h2>
+      <p className="text-sm mt-2">
+        {!ins.loaded
+          ? "Loading…"
+          : !linked
+            ? "Link Chess.com or Lichess to see where your own games leave book."
+            : wrong
+              ? `${wrong} position${wrong === 1 ? "" : "s"} you keep getting wrong.`
+              : groups.length
+                ? `${groups.length} position${groups.length === 1 ? "" : "s"} where you keep leaving book the same way.`
+                : `${ins.data.games.length} games imported; no repeated mistakes found.`}
+      </p>
+      <Link href={wrong || groups.length ? "/insights#ins-repeat" : "/insights"} className="text-xs text-accent hover:underline">
+        {linked ? "Open Insights" : "Link an account"}
+      </Link>
+    </section>
   );
 }
 
