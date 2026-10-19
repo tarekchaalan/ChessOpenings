@@ -1,6 +1,6 @@
 # ADR 0006 — Account Insights (Chess.com + Lichess)
 
-- **Status:** proposed (Phase 0). Awaiting the owner's approval. Migration `0006_account_insights.sql` is a draft, tested locally only. **Nothing touches the hosted project without explicit approval.**
+- **Status:** accepted (Phase 0, 2026-10-19). The owner's decisions are recorded under "Decisions". Migration `0006_account_insights.sql` is tested locally; the owner applies it to the hosted project.
 - **Spec:** `docs/prompts/account-insights.md`.
 - **Evidence:** `docs/qa/insights/phase0/api-verification.md` (live responses, 2026-10-19), with fixtures in `src/lib/insights/__tests__/fixtures/`.
 
@@ -20,7 +20,7 @@ What exists and gets reused (spec §1):
 | Server convention: clients only `SELECT` their own rows; writes go through `withSupabase({auth: "user"})` routes plus the service role | ADR 0004, `/api/train/*` | Insights writes |
 | Account deletion: deleting `auth.users` cascades through `profiles` | `/api/account` | Removes insights too |
 
-Dataset limit: position stats come from **master games only** (Elo ≥ 2200 both sides, ADR 0001). The Lichess explorer's rating-filtered database answers **401** without a token. So "how the openings score at similar ratings" (spec §3.3 Grow) is **not supported by any data we have**, and is dropped (see Recommendations).
+Dataset limit: position stats come from **master games only** (Elo ≥ 2200 both sides, ADR 0001). The Lichess explorer's rating-filtered database answers **401** without a token. So "how the openings score at similar ratings" (spec §3.3 Grow) is **not supported by any data we have**, and is left out (see Recommendations).
 
 ## Decision 1 — Who fetches the games
 
@@ -32,14 +32,14 @@ Dataset limit: position stats come from **master games only** (Elo ≥ 2200 both
 
 **Verified facts behind B:** both APIs send `access-control-allow-origin: *`. `Accept` is a safelisted header, so there's no preflight. Chess.com's docs say the endpoints "can be called, by any kind of client or browsers". The spec's reasons for A were User-Agent, caching and rate limits. The UA is optional. HTTP caching works in the browser too: Chess.com sends `ETag`, and the browser revalidates it. Rate limits are the reason *against* A.
 
-**Recommendation: B.**
+**Decision: B** (accepted by the owner).
 
 What would change it:
 - Lichess OAuth (out of scope): the token would live server-side, so fetching moves to the server for verified accounts.
 - Either platform dropping CORS. Then add option C as a fallback behind the same `Source` interface (below) and accept the shared-IP limits.
 - Wanting server-verified data for the friends feature. See Privacy.
 
-**If you choose A instead,** the library, schema and UI below are unchanged. The `Source` adapters run in the route, and the extra work is:
+**Rejected, for the record: A.** If it's ever needed, the library, schema and UI below are unchanged. The `Source` adapters run in the route, and the extra work is:
 - a `platform_throttle(platform, busy_until, cooldown_until)` lease table;
 - per-IP guest limits;
 - streaming progress (NDJSON response).
@@ -53,7 +53,7 @@ What would change it:
 | `sources/lichess.ts` | `parseLichessGame(json, me) → NormalGame \| Skip` |
 | `sources/chesscom.ts` | `parseChesscomGame(json, me) → NormalGame \| Skip`; `monthsToFetch(archives, since, now, months)` |
 | `filter.ts` | Scope (spec §2): standard rules only (`variant: "standard"` / `rules: "chess"` and `initial_setup` = start FEN), rated only, time class in the chosen set (default rapid, blitz, classical; bullet optional). Daily and correspondence are excluded. The window is last 3 months or 200 games, whichever is smaller (configurable). |
-| `book.ts` | `matchBook(model, sans, color) → BookMatch` |
+| `book.ts` | `maxBookPly(model) → n`; `matchBook(model, sans, color) → BookMatch` |
 | `aggregate.ts` | `byOpening`, `leaveBook`, `repeatDeviations`, `summary` |
 | `bands.ts` | `bandOf(platform, timeClass, rating)` |
 | `recommend.ts` + `weights.ts` | `recommend(model, catalog, summaries, bands) → Rec[]`. All weights and thresholds live in `weights.ts`. |
@@ -83,7 +83,7 @@ Walk the game from `START_EPD` with chess.js, computing `epdOf(fen)` at every pl
 1. A move is **book** when the current node has a move with `norm === normSan(san)` and `to >= 0`, meaning a theory edge or an extension edge (`ext`). Extension edges are the master practice the courses already teach (ADR 0002), so they count as book.
 2. **Transposition.** If the move isn't an edge but the resulting EPD is a known node (`model.byEpd`), the game is still in book there, and the walk continues from that node. The trainer and the SRS cards key on EPD, so a transposed position is just as trainable.
 3. Stats-only moves (`to = -1`) are off book. Their master counts are shown ("masters played this 14 times"), not judged.
-4. The walk stops at the first non-book move or at `maxPly + 2` = 40 plies.
+4. The walk stops at the first non-book move. It can't go past `n`, the longest theory path in the dataset (`maxBookPly(model)`, the longest chain of theory and extension edges from the start: **36 plies today**, equal to the deepest row).
 5. It records:
    - `bookPly`, the plies in book;
    - `deviatedBy`: the side to move at the deviation vs `color` → `me` / `opponent`, or `none` when the game ended in book;
@@ -161,13 +161,19 @@ Every number is computed from the imported summaries. No platform-wide or master
    - score = `w.gap·(1 − topShare) + w.volume·log2(N)`.
 
    Example reason: "No consistent answer to 1.d4 as Black: 18 games, 7 different replies".
-3. **Grow.** Courses the player doesn't already play (no imported game reaches the course's σ node):
-   - Level fit: `level` vs band (bands 1–2 → beginner, 3 → beginner/intermediate, 4 → intermediate/advanced, 5 → any).
-   - **Size**: Essentials line count and `avgDepth`; smaller is better at low bands.
-   - **Forcingness**: the mean share of the most-played master reply at opponent-to-move nodes along Essentials lines. Higher means the opponent's replies are more predictable.
-   - Score = `w.fit + w.size·sizeScore(band) + w.forcing·forcing`.
-
-   The criterion "how the openings score at similar ratings" is **omitted**: the dataset is masters-only and the rated explorer needs a token. The UI says "based on course size and how forcing the theory is", never on win rates at your level. It can plug in later, e.g. Lichess OAuth gives explorer access.
+3. **Grow** (decided 2026-10-19): a set of common openings for each level, ranked by the player's style.
+   - **The per-level sets** come from the catalog, not from a hand-kept list, so they follow dataset changes:
+     - hubs with `placement: "top"`, for the player's side, grouped by the hub's `level`, ordered by `games` (most common first);
+     - today that is 48 hubs: 20 beginner, 27 intermediate, 1 advanced;
+     - band → levels: bands 1–2 → beginner; 3 → beginner + intermediate; 4 → intermediate + advanced; 5 → any.
+     - For Black, only hubs whose `against` matches a first move the player actually faces (most-faced first).
+   - **Excluded:** hubs the player already plays, meaning any imported game whose book path reaches the hub's σ node.
+   - **Style profile** from the player's own games. Each game whose book path reaches a hub's σ adds that hub's `tags` (`gambit`, `solid`, `sharp`, `system`), so the profile is the share of games per tag. Games in untagged hubs count toward the total but toward no tag.
+     - Affinity(hub) = the sum of the profile's shares over the hub's tags, or 0 for an untagged hub.
+     - With fewer than `MIN_GAMES` tagged games, the profile is "unknown" and style is left out of the score (and out of the reason).
+   - **Score** = `w.common·(1 − rank / setSize) + w.style·affinity + w.level·exactLevel`, where `exactLevel` is 1 when the hub's level is the band's first level. The weights are in `weights.ts`.
+   - **Example reason:** "Common at your level (Lichess blitz 1712) and close to how you play: 64% of your games are in solid openings". The style clause appears only when the profile is known.
+   - **Omitted:** "how the openings score at similar ratings". The dataset is masters-only and the rated explorer needs a token. The UI never claims win rates at the player's level. That criterion can plug in later as one more weighted term, e.g. if Lichess OAuth gives explorer access.
 
 ## Storage (migration `0006_account_insights.sql`)
 
@@ -180,16 +186,21 @@ Every number is computed from the imported summaries. No platform-wide or master
   - Primary key `(user_id, platform, game_id)`: re-sync never duplicates. The key is per user because two users can import the same game, e.g. as opponents.
   - Columns:
     - `color, time_class, played_at, result, my_rating, opp_rating, eco, opening_name`
-    - `opening_plies text[] (≤ 40)`, `book_ply`, `deviated_by`, `deviation_epd`, `played_san`, `book_sans`
+    - `opening_plies text[]` (the first `n` plies), `book_ply`, `deviated_by`, `deviation_epd`, `played_san`, `book_sans`
     - `eval_before`, `eval_after` (Lichess analysis, mover's side)
     - `dataset_hash`, `imported_at`
   - FK to `profiles` and a composite FK to `linked_accounts`, both `on delete cascade`, so **unlinking deletes that platform's summaries and account deletion deletes everything.**
   - Checks keep the shapes honest: deviation fields present iff deviated, enums, lengths.
-- **Why `opening_plies` (≤ 40 SAN) is stored.** The spec says to derive and discard PGNs; this is the one exception.
-  - The dataset changes (ADR 0001 live builds). With the first 40 plies, summaries re-match locally when `dataset_hash` changes, with no re-fetch. Chess.com months are about 4 KB per game, and old games may also be gone or private by then.
+- **`opening_plies` = the first `n` plies of each game** (decided 2026-10-19). `n` = `maxBookPly(model)`, 36 today, computed from the dataset and never hard-coded. No game can be in book past ply `n`, so nothing later can matter to book matching. The spec says to derive and discard PGNs; this is the one exception.
+  - **Where it's kept:** in the DB for signed-in players, and in `localStorage` for guests (with the rest of their summaries).
+    - The DB copy lets another device re-match after a dataset change without re-fetching. It's about 36 short strings per game.
+    - It's also what the deep link walks.
+  - **Dataset changes** (ADR 0001 live builds): summaries re-match locally when `dataset_hash` changes, with no re-fetch. Chess.com months are about 4 KB per game, and old games may also be gone or private by then.
+  - **A game that leaves book right after ply `n`:** its deviating move (ply `n + 1`) is kept only in `played_san`, so `book_ply` may equal the number of stored plies.
+  - **Column cap:** the column allows up to 38 plies (the dataset's `maxPly`). `n` can't pass that without a corpus rebuild (ADR 0001: rows deeper than `maxPly − 2` warn), so a deeper dataset still syncs; one beyond 38 needs a migration that raises the cap.
   - The deep link needs the path.
   - It holds only opening moves: no headers, clocks, opponent names or later moves. These are public games anyway.
-- **Not stored:** full PGN or moves past ply 40, opponent usernames, clocks, accuracy, or the platform's per-move analysis beyond the two numbers at the deviation.
+- **Not stored:** full PGN or moves past ply `n`, opponent usernames, clocks, accuracy, or the platform's per-move analysis beyond the two numbers at the deviation.
 - **Size and retention:** about 0.5 KB per row. A sync keeps the newest **1,000 games per platform** and prunes older rows in the same request.
 - **RLS:** own-row `select` for `authenticated`; nothing for `anon`; `all` for `service_role`. Defaults are revoked first, as in 0004, so there's no client TRUNCATE.
 - **Test:** `scripts/supabase/test-0006.sh` (local Postgres only; refuses other hosts). It applies 0001–0006, then 0006 again (idempotence), and checks:
@@ -262,18 +273,18 @@ Every number is computed from the imported summaries. No platform-wide or master
 
 | Phase | Deliverable |
 |---|---|
-| 0 (this) | This ADR, API verification notes and fixtures, the migration draft and its local test. **Stop for approval.** |
+| 0 (done) | This ADR, API verification notes and fixtures, migration 0006 and its local test. Approved 2026-10-19. |
 | 1 | `src/lib/insights/` with unit tests on the fixtures (parsing, filter, book matching including transposition, aggregation, bands, recommendation scoring, deep links with fallback). |
 | 2 | Client sources (Lichess stream, Chess.com months, queue, 429 / 404 / network), `/api/insights/*` with validation tests, and the guest store. |
 | 3 | `/insights` page, the linking UI and the nav entry. e2e tests with mocked APIs, axe AA in light and dark. |
 | 4 | Engine verdicts (budgeted, cancellable, cached), deep links, and the dashboard card ("N positions you keep getting wrong"). |
 
-## Decisions needed from the owner
+## Decisions (owner, 2026-10-19)
 
-1. **Fetch location:** B (browser, recommended) or A (server routes, as written in the spec).
-2. **Storing `opening_plies` (≤ 40 SAN per game)** to allow local re-matching and deep links. The alternative is re-fetching from the platform whenever the dataset changes.
-3. **Dropping "scores at similar ratings" from Grow** until a data source exists.
-4. Defaults: `MIN_GAMES` = 5, retention 1,000 games per platform, guest cap 400, the band edges above.
+1. **Fetch location:** B. The browser fetches games directly from both platforms.
+2. **Stored moves:** the first `n` plies of each game, `n` = the longest theory sequence in the dataset (36 today). Signed-in players: DB. Guests: browser only.
+3. **Grow:** a set of common openings per level, weighted by the player's style. "Scores at similar ratings" stays out until a data source exists.
+4. **Defaults accepted:** `MIN_GAMES` = 5, retention 1,000 games per platform, guest cap 400, the band edges above.
 
 ## Consequences
 
@@ -283,4 +294,4 @@ Every number is computed from the imported summaries. No platform-wide or master
   - Either platform can drop CORS. The `Source` interface lets a server proxy (option C) slot in.
   - Chess.com may change the monthly fields that are only documented elsewhere (`time_class`, `rated`). The parser tolerates their absence by skipping the game and counting it ("N games couldn't be classified"), rather than guessing a time class.
   - Lichess limits are per IP. Shared networks (schools, clubs) can still hit 429 and get the 60 s back-off.
-- **Remote steps after approval:** apply `0006_account_insights.sql`. No new environment variables are needed with B (the existing `SUPABASE_*` server variables cover the routes).
+- **Remote step:** the owner applies `0006_account_insights.sql`. No new environment variables are needed with B (the existing `SUPABASE_*` server variables cover the routes).

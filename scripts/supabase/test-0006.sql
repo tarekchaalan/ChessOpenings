@@ -58,8 +58,14 @@ begin
   end;
   begin
     insert into public.game_summaries (user_id, platform, game_id, color, time_class, played_at, result, opening_plies, book_ply, deviated_by, dataset_hash)
-    values ('00000000-0000-0000-0000-00000000000a', 'lichess', 'x4', 'white', 'blitz', now(), 'win', array_fill('e4'::text, array[41]), 0, 'none', 'h');
-    raise exception '41 opening plies accepted';
+    values ('00000000-0000-0000-0000-00000000000a', 'lichess', 'x4', 'white', 'blitz', now(), 'win', array_fill('e4'::text, array[39]), 0, 'none', 'h');
+    raise exception '39 opening plies accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.game_summaries (user_id, platform, game_id, color, time_class, played_at, result, opening_plies, book_ply, deviated_by, dataset_hash)
+    values ('00000000-0000-0000-0000-00000000000a', 'lichess', 'x5', 'white', 'blitz', now(), 'win', array['e4','e5'], 3, 'none', 'h');
+    raise exception 'book_ply beyond the stored plies accepted';
   exception when check_violation then null;
   end;
   begin

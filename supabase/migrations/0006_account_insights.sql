@@ -1,7 +1,8 @@
 -- Account Insights (ADR 0006): linked Chess.com / Lichess accounts and the
--- derived per-game summaries the Insights page reads. DRAFT (Phase 0): tested
--- on a local Postgres only (scripts/supabase/test-0006.sh); not applied to the
--- hosted project.
+-- derived per-game summaries the Insights page reads. Tested on a local
+-- Postgres (scripts/supabase/test-0006.sh); the owner applies it to the hosted
+-- project. Games are fetched by the browser (ADR 0006 Decision 1); only these
+-- derived rows reach the server.
 --
 -- Security model (same as 0004): clients only SELECT their own rows. Link,
 -- sync and unlink go through /api/insights/* route handlers, which validate
@@ -11,10 +12,12 @@
 -- `on delete cascade`. Unlinking a platform deletes its summaries; deleting
 -- the account (DELETE /api/account) deletes everything.
 --
--- Raw PGNs are never stored. `opening_plies` keeps only the first moves of a
--- game (at most 40 plies: the dataset's maxPly is 38) so summaries can be
--- re-matched when the theory dataset changes and so "Train this line" can find
--- the course line, without re-fetching from the platform.
+-- Raw PGNs are never stored. `opening_plies` keeps only the first n moves of a
+-- game, n = the longest theory path in the dataset (36 plies today; computed
+-- by src/lib/insights, never hard-coded), so summaries can be re-matched when
+-- the theory dataset changes and "Train this line" can find the course line,
+-- without re-fetching from the platform. The column cap is the dataset's
+-- maxPly (38), the ceiling n can reach without a corpus rebuild (ADR 0001).
 -- Idempotent: safe to re-run.
 
 create table if not exists public.linked_accounts (
@@ -52,14 +55,15 @@ create table if not exists public.game_summaries (
   -- the platform's own classification (shown as-is; book matching is ours)
   eco           text check (eco ~ '^[A-E][0-9]{2}$'),
   opening_name  text check (length(opening_name) <= 200),
-  opening_plies text[] not null check (cardinality(opening_plies) between 1 and 40),
+  opening_plies text[] not null check (cardinality(opening_plies) between 1 and 38),
   -- plies played while every move was a theory (or extension) edge
-  book_ply      smallint not null check (book_ply between 0 and 40),
+  book_ply      smallint not null check (book_ply between 0 and 38),
   -- who played the first non-book move; 'none' = the game ended in book or
-  -- stayed in book past the stored plies
+  -- stayed in book through the deepest theory
   deviated_by   text not null check (deviated_by in ('me', 'opponent', 'none')),
   -- position (EPD) before the first non-book move, the move played there and
-  -- the theory moves that were available
+  -- the theory moves that were available. The move is opening_plies[book_ply + 1],
+  -- or, when the game left book right after n plies, only here
   deviation_epd text check (length(deviation_epd) <= 100),
   played_san    text check (played_san ~ '^[A-Za-z0-9+#=-]{2,8}$'),
   book_sans     text[] check (cardinality(book_sans) <= 40),
@@ -74,7 +78,7 @@ create table if not exists public.game_summaries (
   foreign key (user_id, platform) references public.linked_accounts (user_id, platform) on delete cascade,
   check ((deviated_by = 'none') = (deviation_epd is null)),
   check ((deviation_epd is null) = (played_san is null)),
-  check (book_ply < cardinality(opening_plies) or deviated_by = 'none')
+  check (book_ply <= cardinality(opening_plies))
 );
 
 -- repeat mistakes: the player's own deviations grouped by position
