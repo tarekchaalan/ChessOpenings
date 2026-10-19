@@ -70,6 +70,15 @@ describe("matchBook", () => {
     expect(model.nodes[m.path[3]].epd).toBe(model.nodes[matchBook(model, ["e4", "c5", "Nf3"], "white").path[3]].epd);
   });
 
+  it("playing on from the last position of a theory line isn't leaving book", () => {
+    const sans = "e4 e6 d4 d5 e5 c5 c3 Qb6 Nf3 Bd7 Be2 Bb5 Bxb5".split(" ");
+    const m = matchBook(model, sans, "white");
+    const last = model.nodes[m.path[m.path.length - 1]];
+    expect(last.moves.some((x) => x.to >= 0)).toBe(false);
+    expect(m).toMatchObject({ deviatedBy: "none", deviationEpd: null, playedSan: null });
+    expect(m.plies).toEqual(sans);
+  });
+
   it("normalises SAN (+, #) and stops at an illegal move", () => {
     const m = matchBook(model, ["e4", "e5", "Qh5", "Nc6", "Bc4", "Nf6", "Qxf7#"], "white");
     expect(m.plies[m.plies.length - 1]).toBe("Qxf7");

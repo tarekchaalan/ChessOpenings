@@ -81,6 +81,16 @@ describe("Lichess import", () => {
     await expect(lookupProfile("lichess", "Zhigalko_Sergei", down.deps)).rejects.toMatchObject({ kind: "network" });
   });
 
+  it("Cancel during the 429 back-off rejects at once with an AbortError", async () => {
+    const m = mock(() => new Response("", { status: 429 }));
+    // a sleep that never ends on its own
+    m.deps.sleep = () => new Promise(() => {});
+    const ctrl = new AbortController();
+    const p = fetchGames("lichess", { username: "u1", scope: DEFAULT_SCOPE, since: null, now: NOW, signal: ctrl.signal }, m.deps);
+    setTimeout(() => ctrl.abort(), 20);
+    await expect(p).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("an invalid username never reaches the network", async () => {
     const m = mock(() => ok("{}"));
     await expect(lookupProfile("lichess", "bad name!", m.deps)).rejects.toMatchObject({ kind: "not-found" });

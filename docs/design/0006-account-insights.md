@@ -328,3 +328,21 @@ Every number is computed from the imported summaries. No platform-wide or master
   - Chess.com `hikaru`: 200 games, 2.2 s; 401 bullet games skipped.
   - Every summary passed the server's `checkSummary`.
   - A re-sync from the cursor returned 0 games on both platforms.
+
+## Review follow-up (after PR #4)
+
+An adversarial review of the merged code found 12 issues; all are fixed:
+
+- **Stale-user writes.** A sync or a dataset re-match that started for one user stops once the user changes: sign-out, a switch, or re-linking another username. A user switch also aborts the running import, and the page only auto-syncs once the store holds the current user's data. Before this, signing out mid-import could leave the previous player's games in guest storage.
+- **Guest save.** "Save to your account" checks every upload and keeps the browser copy unless all of them succeed.
+- **End of a theory line.** Playing on from a line's last position isn't "leaving book": `deviatedBy` stays `none`, unless the move transposes back into book. In the fixtures, 18 of 73 recorded deviations were such leaves.
+- **Validation matches the SQL.** `playedAt` must be canonical ISO between 2000 and tomorrow. `playedSan` and the stored plies must be normalised SAN. `openingName` may not contain NUL or lone surrogates. Each of these was a 500 before; now it's a 400.
+- **Atomic rate limit.** Migration `0007_insights_sync_claim.sql` adds `insights_claim_sync()`, which checks and increments in one `UPDATE`, only for the username being synced (service role only). It runs before validation. Re-linking the same name keeps the window.
+- **Re-link race.** A sync now carries the username. The claim, the account check and the account update are all scoped to it, so a sync that loses a race with a re-link gets 409 and writes nothing to the new account.
+- **Bullet toggle.** Turning bullet on makes the next import of each platform ignore the cursor once, so bullet games already inside the window are imported.
+- **Re-match uploads** are flagged `rematch`. They no longer move `last_synced_at`, and they stop at the first failure.
+- **Cancel** works during a 429 back-off and during profile lookups.
+- **Route.** Action lookup is own-property only, and oversized bodies are refused by `content-length` before the body is read.
+- **Reads.** Paging uses a total order (`played_at`, `platform`, `game_id`) and runs until an empty page, so a lower `max-rows` setting can't cut it short.
+
+**Known and accepted:** after more than 200 new games, an incremental import keeps the newest 200. That is the spec's window ("last 3 months or 200 games, whichever is smaller"), so older games in between are out of scope by definition.

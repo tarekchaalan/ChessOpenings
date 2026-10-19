@@ -20,8 +20,11 @@ export function supabaseInsightsDb(admin: SupabaseClient): InsightsDb {
       if (replace) check(await admin.from("linked_accounts").delete().eq("user_id", row.user_id).eq("platform", row.platform));
       check(await admin.from("linked_accounts").upsert(row, { onConflict: "user_id,platform" }));
     },
-    async updateAccount(userId, platform, patch) {
-      check(await admin.from("linked_accounts").update(patch).eq("user_id", userId).eq("platform", platform));
+    async updateAccount(userId, platform, username, patch) {
+      check(await admin.from("linked_accounts").update(patch).eq("user_id", userId).eq("platform", platform).eq("username", username));
+    },
+    async claimSync(userId, platform, username, limit) {
+      return check(await admin.rpc("insights_claim_sync", { p_user: userId, p_platform: platform, p_username: username, p_limit: limit })) as number;
     },
     async deleteAccount(userId, platform) {
       check(await admin.from("linked_accounts").delete().eq("user_id", userId).eq("platform", platform));
@@ -33,7 +36,7 @@ export function supabaseInsightsDb(admin: SupabaseClient): InsightsDb {
       let removed = 0;
       for (;;) {
         const old = check(
-          await admin.from("game_summaries").select("game_id").eq("user_id", userId).eq("platform", platform).order("played_at", { ascending: false }).range(keep, keep + 499)
+          await admin.from("game_summaries").select("game_id").eq("user_id", userId).eq("platform", platform).order("played_at", { ascending: false }).order("game_id").range(keep, keep + 499)
         ) as { game_id: string }[];
         if (!old.length) return removed;
         check(await admin.from("game_summaries").delete().eq("user_id", userId).eq("platform", platform).in("game_id", old.map((r) => r.game_id)));

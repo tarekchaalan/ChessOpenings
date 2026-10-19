@@ -22,8 +22,9 @@ const MAX_BODY = 512 * 1024;
 
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }): Promise<Response> {
   const { action } = await params;
-  const run = ACTIONS[action];
+  const run = Object.hasOwn(ACTIONS, action) ? ACTIONS[action] : undefined;
   if (!run) return Response.json({ message: "unknown action" }, { status: 404 });
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return Response.json({ message: "request too large" }, { status: 413 });
   if (!configured()) return Response.json({ message: "Account Insights storage is not configured on this deployment." }, { status: 503 });
   const handler = withSupabase({ auth: "user", cors: false }, async (r, ctx) => {
     const userId = ctx.userClaims?.id;

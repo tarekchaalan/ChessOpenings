@@ -125,6 +125,34 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
+-- ── 0007: insights_claim_sync ──────────────────────────────────────────────
+do $$
+declare v int; i int;
+begin
+  -- 30 claims per hour for the linked username (any case), then the wait in seconds
+  for i in 1..30 loop
+    v := public.insights_claim_sync('00000000-0000-0000-0000-00000000000b', 'chesscom', 'HIKARU', 30);
+    if v <> 0 then raise exception 'claim % refused (%)', i, v; end if;
+  end loop;
+  v := public.insights_claim_sync('00000000-0000-0000-0000-00000000000b', 'chesscom', 'hikaru', 30);
+  if v < 3500 or v > 3600 then raise exception 'claim 31 should wait about an hour, got %', v; end if;
+  -- not linked / another username
+  if public.insights_claim_sync('00000000-0000-0000-0000-00000000000b', 'chesscom', 'someone_else', 30) <> -1 then raise exception 'mismatched username claimed'; end if;
+  if public.insights_claim_sync('00000000-0000-0000-0000-00000000000b', 'lichess', 'hikaru', 30) <> -1 then raise exception 'unlinked platform claimed'; end if;
+  -- an expired window starts over
+  update public.linked_accounts set sync_window_start = now() - interval '61 minutes' where user_id = '00000000-0000-0000-0000-00000000000b';
+  if public.insights_claim_sync('00000000-0000-0000-0000-00000000000b', 'chesscom', 'hikaru', 30) <> 0 then raise exception 'expired window not reset'; end if;
+  if (select sync_calls from public.linked_accounts where user_id = '00000000-0000-0000-0000-00000000000b') <> 1 then raise exception 'counter not reset'; end if;
+end $$;
+set role authenticated;
+do $$
+begin
+  perform public.insights_claim_sync('00000000-0000-0000-0000-00000000000a', 'chesscom', 'hikaru', 30);
+  raise exception 'authenticated can call insights_claim_sync';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
 -- ── unlink deletes that platform's summaries only ──────────────────────────
 delete from public.linked_accounts where user_id = '00000000-0000-0000-0000-00000000000a' and platform = 'lichess';
 do $$
