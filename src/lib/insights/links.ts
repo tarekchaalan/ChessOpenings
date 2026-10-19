@@ -23,7 +23,11 @@ export interface TrainLink {
 export const CATALOG_LINK: TrainLink = { train: "/openings", course: "/openings", courseName: "the opening catalog", exact: false };
 
 const courseHref = (t: Target) => `/openings/${t.hub.slug}/${t.system.slug}/${t.system.side}`;
-const courseName = (t: Target) => (t.system.name && t.system.name !== t.hub.title ? `${t.hub.title}: ${t.system.name}` : t.hub.title);
+const courseName = (t: Target) => {
+  const s = t.system.name;
+  // system names usually repeat the hub's ("Sicilian Defense: Old Sicilian")
+  return !s || s === t.hub.title ? t.hub.title : s.startsWith(t.hub.title) ? s : `${t.hub.title}: ${s}`;
+};
 
 /** Ply index of the target's position in its course line, or null. */
 function startPly(ds: Dataset, t: Target): number | null {

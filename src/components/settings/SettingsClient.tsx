@@ -24,6 +24,8 @@ import { clearLocalData, clearV1Backup, setPref, usePrefs, v1BackupSize } from "
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 import { authErrorMessage, callbackUrl, USERNAME_RE, USERNAME_RULE } from "@/lib/auth";
+import LinkedAccounts from "@/components/insights/LinkedAccounts";
+import { useInsights } from "@/lib/insights/client";
 
 type Tab = "account" | "preferences" | "data";
 
@@ -55,7 +57,12 @@ export default function SettingsClient() {
         ))}
       </div>
 
-      {tab === "account" && <AccountTab />}
+      {tab === "account" && (
+        <div className="space-y-4">
+          <AccountTab />
+          <ChessAccountsCard />
+        </div>
+      )}
       {tab === "preferences" && <PreferencesTab />}
       {tab === "data" && <DataTab />}
     </div>
@@ -762,6 +769,24 @@ function DataTab() {
         </Card>
       )}
     </div>
+  );
+}
+
+/** Linked Chess.com / Lichess accounts (ADR 0006), the same panel as on /insights. */
+function ChessAccountsCard() {
+  const { user, loading } = useAuth();
+  const ins = useInsights(user?.id ?? null, loading);
+  return (
+    <Card title="Chess.com and Lichess">
+      <p className="text-sm text-muted mb-3">
+        Link your accounts to see where your openings leave book and what to learn next on{" "}
+        <Link href="/insights" className="text-accent underline">
+          Insights
+        </Link>
+        .
+      </p>
+      {ins.loaded ? <LinkedAccounts accounts={ins.data.accounts} status={ins.status} signedIn={!!user && !ins.serverless} showStatus /> : <div className="h-24 rounded bg-surface-2 animate-pulse" />}
+    </Card>
   );
 }
 
