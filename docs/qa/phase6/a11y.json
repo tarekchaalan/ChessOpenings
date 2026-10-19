@@ -1,0 +1,195 @@
+{
+  "measuredAt": "2026-10-19T03:36:26.236Z",
+  "rows": [
+    {
+      "page": "dashboard",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "catalog",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "hub",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "course: chapters",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "course: tree",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "course: explorer",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "trainer: learn",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "trainer: mistake",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "trainer: shortcuts sheet",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "review (empty)",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "explore",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "opening map",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "opening map: list",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "settings: account",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "settings: preferences",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "settings: data",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "leaderboard",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "changes",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "sign in",
+      "theme": "light",
+      "violations": []
+    },
+    {
+      "page": "dashboard",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "catalog",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "hub",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "course: chapters",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "course: tree",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "course: explorer",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "trainer: learn",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "trainer: mistake",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "trainer: shortcuts sheet",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "review (empty)",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "explore",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "opening map",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "opening map: list",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "settings: account",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "settings: preferences",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "settings: data",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "leaderboard",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "changes",
+      "theme": "dark",
+      "violations": []
+    },
+    {
+      "page": "sign in",
+      "theme": "dark",
+      "violations": []
+    }
+  ]
+}

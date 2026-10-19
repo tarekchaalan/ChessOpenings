@@ -4,6 +4,10 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { AuthProvider } from "@/lib/supabase/AuthProvider";
 import Header from "@/components/Header";
+import DataUpdateToast from "@/components/DataUpdateToast";
+import ProgressMaintenance from "@/components/ProgressMaintenance";
+import ServerSync from "@/components/ServerSync";
+import { MotionSync } from "@/lib/motion";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +46,10 @@ export default function RootLayout({
           <AuthProvider>
             <Header />
             <main className="flex-1 w-full max-w-6xl mx-auto px-4 pb-16">{children}</main>
+            <DataUpdateToast />
+            <ProgressMaintenance />
+            <ServerSync />
+            <MotionSync />
           </AuthProvider>
         </ThemeProvider>
       </body>

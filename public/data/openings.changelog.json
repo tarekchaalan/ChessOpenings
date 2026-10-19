@@ -1,0 +1,742 @@
+{
+ "format": "chess-openings-trainer/changelog@1",
+ "entries": [
+  {
+   "fromHash": null,
+   "toHash": "90aad103cdde8bf449adafad369f70a0ef396cc17298bd9ad5d6a7242f219a89",
+   "builtAt": "2026-10-18T10:27:49.086Z",
+   "added": [
+    {
+     "rowId": "rw_aeaelkzbc33q",
+     "name": "English Opening: King's English Variation, Reversed Closed Sicilian",
+     "eco": "A25"
+    },
+    {
+     "rowId": "rw_slmgfsr5wlxo",
+     "name": "English Opening: King's English Variation, Reversed Closed Sicilian",
+     "eco": "A25"
+    },
+    {
+     "rowId": "rw_a3ikkm5zvz3l",
+     "name": "English Opening: King's English Variation, Reversed Closed Sicilian",
+     "eco": "A25"
+    },
+    {
+     "rowId": "rw_eppki7nvjttg",
+     "name": "English Opening: King's English Variation, Reversed Closed Sicilian",
+     "eco": "A25"
+    },
+    {
+     "rowId": "rw_umgttzekyhie",
+     "name": "English Opening: King's English Variation, Four Knights Variation, Fianchetto Line",
+     "eco": "A29"
+    },
+    {
+     "rowId": "rw_aug7iq4znxpx",
+     "name": "English Opening: King's English Variation, Four Knights Variation, Fianchetto Line",
+     "eco": "A29"
+    },
+    {
+     "rowId": "rw_6z4q3h6zjyll",
+     "name": "English Opening: Symmetrical Variation, Anti-Benoni Variation, Kasparov-Vaganian Gambit",
+     "eco": "A31"
+    },
+    {
+     "rowId": "rw_txxdmczof6vr",
+     "name": "English Opening: Symmetrical Variation, Four Knights Variation",
+     "eco": "A35"
+    },
+    {
+     "rowId": "rw_fqojck3of62n",
+     "name": "English Opening: Symmetrical Variation, Four Knights Variation, Keres-Parma System",
+     "eco": "A35"
+    },
+    {
+     "rowId": "rw_j6aiaudszqv5",
+     "name": "English Opening: Symmetrical Variation, Three Knights, Fianchetto Variation",
+     "eco": "A37"
+    },
+    {
+     "rowId": "rw_gk62ifph76yk",
+     "name": "English Opening: Symmetrical Variation, Three Knights, Fianchetto Variation",
+     "eco": "A37"
+    },
+    {
+     "rowId": "rw_xehd554cvzwk",
+     "name": "Queen's Pawn Game: Rossolimo Variation",
+     "eco": "A41"
+    },
+    {
+     "rowId": "rw_zyizo74kxoyv",
+     "name": "Basque Opening",
+     "eco": "A45"
+    },
+    {
+     "rowId": "rw_lnjznhq7ke23",
+     "name": "Benoni Defense: Four Pawns Attack",
+     "eco": "A68"
+    },
+    {
+     "rowId": "rw_pq66p5lq3gz5",
+     "name": "Benoni Defense: Four Pawns Attack, Main Line",
+     "eco": "A69"
+    },
+    {
+     "rowId": "rw_zju3lb3c56ag",
+     "name": "Benoni Defense: Four Pawns Attack, Main Line",
+     "eco": "A69"
+    },
+    {
+     "rowId": "rw_deccaxxsd2uw",
+     "name": "Benoni Defense: Four Pawns Attack, Main Line",
+     "eco": "A69"
+    },
+    {
+     "rowId": "rw_jbyexjbg3zoo",
+     "name": "Benoni Defense: Classical Variation, Czerniak Defense, Tal Line",
+     "eco": "A77"
+    },
+    {
+     "rowId": "rw_lp6omq6zgxxb",
+     "name": "Dutch Defense: Barcza Variation",
+     "eco": "A80"
+    },
+    {
+     "rowId": "rw_kpa4g55dt7cw",
+     "name": "Caro-Kann Defense: Panov Attack",
+     "eco": "B14"
+    },
+    {
+     "rowId": "rw_7e6cfljoxajp",
+     "name": "Caro-Kann Defense: Panov Attack",
+     "eco": "B14"
+    },
+    {
+     "rowId": "rw_54jpwmepv442",
+     "name": "Caro-Kann Defense: Panov Attack",
+     "eco": "B14"
+    },
+    {
+     "rowId": "rw_rflgzahvb7p2",
+     "name": "Sicilian Defense: McDonnell Attack",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_ao5skdsuabhk",
+     "name": "Sicilian Defense: McDonnell Attack",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_47ueyy6g3kmc",
+     "name": "Sicilian Defense: McDonnell Attack",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_4p2vxddqbixh",
+     "name": "Sicilian Defense: McDonnell Attack",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_o5yj4eshqqou",
+     "name": "Sicilian Defense: McDonnell Attack",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_iddcoxc63png",
+     "name": "Sicilian Defense: Smith-Morra Gambit Accepted, Fianchetto Defense",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_luubqojyt3ig",
+     "name": "Sicilian Defense: Smith-Morra Gambit Accepted, Fianchetto Defense",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_goxs42iyizf5",
+     "name": "Sicilian Defense: Smith-Morra Gambit Accepted, Fianchetto Defense",
+     "eco": "B21"
+    },
+    {
+     "rowId": "rw_ansdpd6sajsr",
+     "name": "Sicilian Defense: Alapin Variation, Barmen Defense",
+     "eco": "B22"
+    },
+    {
+     "rowId": "rw_v4wzod3ydtio",
+     "name": "Sicilian Defense: Alapin Variation, Barmen Defense",
+     "eco": "B22"
+    },
+    {
+     "rowId": "rw_wxsvk5r35ozk",
+     "name": "Sicilian Defense: Delayed Alapin Variation",
+     "eco": "B22"
+    },
+    {
+     "rowId": "rw_celrpnywo4el",
+     "name": "Sicilian Defense: Closed",
+     "eco": "B23"
+    },
+    {
+     "rowId": "rw_is3cf46xuebg",
+     "name": "Sicilian Defense: Closed",
+     "eco": "B23"
+    },
+    {
+     "rowId": "rw_ggdumaohmbnl",
+     "name": "Sicilian Defense: Closed",
+     "eco": "B23"
+    },
+    {
+     "rowId": "rw_ibdzwp5rxeih",
+     "name": "Sicilian Defense: Kan Variation, Knight Variation",
+     "eco": "B43"
+    },
+    {
+     "rowId": "rw_xdu2t766dtwb",
+     "name": "French Defense: Tarrasch Variation, Open System, Main Line",
+     "eco": "C09"
+    },
+    {
+     "rowId": "rw_vvylfkomqocc",
+     "name": "Four Knights Game: Gunsberg Variation, Provincial Opening",
+     "eco": "C47"
+    },
+    {
+     "rowId": "rw_a3dgngwtodqt",
+     "name": "Italian Game: Classical Variation, Giuoco Pianissimo",
+     "eco": "C54"
+    },
+    {
+     "rowId": "rw_shu4tspemy2n",
+     "name": "Italian Game: Classical Variation, Giuoco Pianissimo",
+     "eco": "C54"
+    },
+    {
+     "rowId": "rw_p7ok3gugelo4",
+     "name": "Italian Game: Classical Variation, Giuoco Pianissimo",
+     "eco": "C54"
+    },
+    {
+     "rowId": "rw_as27f5u5ezhk",
+     "name": "Italian Game: Classical Variation, Giuoco Pianissimo",
+     "eco": "C54"
+    },
+    {
+     "rowId": "rw_jzitfdtxoshp",
+     "name": "Ruy Lopez: Marshall Attack",
+     "eco": "C89"
+    },
+    {
+     "rowId": "rw_bapvod7yzzcg",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_rkq4nnjyawei",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_7fjq2jmhnfap",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_nhzmtfp3yekg",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_gscox7bzkgpt",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_kkth2x3hkzmq",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_xeg7bvkivg42",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_g7ia2aipzlcm",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_ymcfiwpwqpjw",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_3jxiojc33pdh",
+     "name": "Queen's Pawn Game: Torre Attack",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_kyjdstyoogsj",
+     "name": "Queen's Pawn Game: Torre Attack, Grünfeld Variation",
+     "eco": "D03"
+    },
+    {
+     "rowId": "rw_7ibmsmzu7ux6",
+     "name": "Queen's Gambit Declined: Chigorin Defense",
+     "eco": "D07"
+    },
+    {
+     "rowId": "rw_qtipvnehw4lq",
+     "name": "Queen's Gambit Declined: Chigorin Defense",
+     "eco": "D07"
+    },
+    {
+     "rowId": "rw_qsozifoguzuw",
+     "name": "Queen's Gambit Accepted: Mannheim Variation",
+     "eco": "D23"
+    },
+    {
+     "rowId": "rw_zm2ny4cz435p",
+     "name": "Queen's Gambit Accepted: Mannheim Variation",
+     "eco": "D23"
+    },
+    {
+     "rowId": "rw_xctb7dpevt2h",
+     "name": "Queen's Gambit Accepted",
+     "eco": "D24"
+    },
+    {
+     "rowId": "rw_uhydm5z5ksmb",
+     "name": "Queen's Gambit Accepted: Normal Variation, .. a6 Sideline",
+     "eco": "D26"
+    },
+    {
+     "rowId": "rw_k4mccwwftpug",
+     "name": "Queen's Gambit Accepted: Normal Variation, .. a6 Sideline",
+     "eco": "D26"
+    },
+    {
+     "rowId": "rw_oa53w6j7y7xd",
+     "name": "Queen's Gambit Accepted: Normal Variation, Traditional System",
+     "eco": "D26"
+    },
+    {
+     "rowId": "rw_qmfi4ojpjt7g",
+     "name": "Queen's Gambit Accepted: Normal Variation, Traditional System",
+     "eco": "D26"
+    },
+    {
+     "rowId": "rw_pjqzn6fm3ody",
+     "name": "Queen's Gambit Accepted: Normal Variation, Traditional System",
+     "eco": "D26"
+    },
+    {
+     "rowId": "rw_r7xp4dzsgkvx",
+     "name": "Queen's Gambit Accepted: Classical Defense, Main Line",
+     "eco": "D27"
+    },
+    {
+     "rowId": "rw_b7f2bwlop6yd",
+     "name": "Queen's Gambit Accepted: Classical Defense, Main Line",
+     "eco": "D27"
+    },
+    {
+     "rowId": "rw_vpt4l3o7vsnd",
+     "name": "Queen's Gambit Accepted: Classical Defense, Rubinstein Variation",
+     "eco": "D27"
+    },
+    {
+     "rowId": "rw_dlhn35i6btoj",
+     "name": "Queen's Gambit Accepted: Classical Defense, Alekhine System, Main Line",
+     "eco": "D29"
+    },
+    {
+     "rowId": "rw_mkrpezunit2c",
+     "name": "Queen's Gambit Declined",
+     "eco": "D30"
+    },
+    {
+     "rowId": "rw_jvypozi67xcl",
+     "name": "Queen's Gambit Declined: Traditional Variation",
+     "eco": "D30"
+    },
+    {
+     "rowId": "rw_swpsbq54inpl",
+     "name": "Semi-Slav Defense: Anti-Noteboom, Stonewall Variation",
+     "eco": "D31"
+    },
+    {
+     "rowId": "rw_xlrfetmrszvk",
+     "name": "Queen's Gambit Declined: Tarrasch Defense",
+     "eco": "D32"
+    },
+    {
+     "rowId": "rw_womnzxyifwnx",
+     "name": "Queen's Gambit Declined: Tarrasch Defense",
+     "eco": "D32"
+    },
+    {
+     "rowId": "rw_bfhxmzgeblyi",
+     "name": "Queen's Gambit Declined: Tarrasch Defense",
+     "eco": "D32"
+    },
+    {
+     "rowId": "rw_gkfjziikknbj",
+     "name": "Tarrasch Defense: Symmetrical Variation",
+     "eco": "D32"
+    },
+    {
+     "rowId": "rw_45pr4aesscid",
+     "name": "Queen's Gambit Declined: Exchange Variation",
+     "eco": "D35"
+    },
+    {
+     "rowId": "rw_vngyqtbysmq7",
+     "name": "Queen's Gambit Declined: Exchange Variation",
+     "eco": "D35"
+    },
+    {
+     "rowId": "rw_mi3mx7yynwhp",
+     "name": "Queen's Gambit Declined: Exchange Variation, Positional Variation",
+     "eco": "D35"
+    },
+    {
+     "rowId": "rw_hkep44ohvhqm",
+     "name": "Queen's Gambit Declined: Exchange Variation, Positional Variation",
+     "eco": "D35"
+    },
+    {
+     "rowId": "rw_3y35f6gfofll",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_bzehykx27hsj",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_znexkqpnangi",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_7upiohlvwqen",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_ezwwpxsiduoy",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_vioekrwijbhi",
+     "name": "Queen's Gambit Declined: Exchange Variation, Reshevsky Variation",
+     "eco": "D36"
+    },
+    {
+     "rowId": "rw_ruo25xlpukem",
+     "name": "Queen's Gambit Declined: Three Knights Variation",
+     "eco": "D37"
+    },
+    {
+     "rowId": "rw_l77nzd237vyd",
+     "name": "Queen's Gambit Declined: Semi-Tarrasch Defense",
+     "eco": "D40"
+    },
+    {
+     "rowId": "rw_uktfkd3stkd4",
+     "name": "Queen's Gambit Declined: Semi-Tarrasch Defense, with e3",
+     "eco": "D40"
+    },
+    {
+     "rowId": "rw_wlxcctaaovik",
+     "name": "Queen's Gambit Declined: Semi-Tarrasch Defense",
+     "eco": "D41"
+    },
+    {
+     "rowId": "rw_ixucopwyb4lu",
+     "name": "Queen's Gambit Declined: Semi-Tarrasch Defense",
+     "eco": "D41"
+    },
+    {
+     "rowId": "rw_owpl3ld4vbv7",
+     "name": "Semi-Slav Defense: Meran Variation",
+     "eco": "D48"
+    },
+    {
+     "rowId": "rw_2as5vvhcmxf3",
+     "name": "Semi-Slav Defense: Meran Variation",
+     "eco": "D48"
+    },
+    {
+     "rowId": "rw_yal7hdxrzinz",
+     "name": "Semi-Slav Defense: Meran Variation",
+     "eco": "D48"
+    },
+    {
+     "rowId": "rw_bqcrn6fbjh4m",
+     "name": "Queen's Gambit Declined",
+     "eco": "D53"
+    },
+    {
+     "rowId": "rw_ksxogwcug757",
+     "name": "Queen's Gambit Declined",
+     "eco": "D53"
+    },
+    {
+     "rowId": "rw_nyka4kwr4md6",
+     "name": "Queen's Gambit Declined",
+     "eco": "D53"
+    },
+    {
+     "rowId": "rw_qd4zn5slwiaz",
+     "name": "Queen's Gambit Declined",
+     "eco": "D53"
+    },
+    {
+     "rowId": "rw_dtj7755ocllf",
+     "name": "Queen's Gambit Declined",
+     "eco": "D56"
+    },
+    {
+     "rowId": "rw_v5qsqzl6jhfu",
+     "name": "Queen's Gambit Declined: Lasker Defense",
+     "eco": "D56"
+    },
+    {
+     "rowId": "rw_s7rrmyzqxdbu",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Botvinnik Variation",
+     "eco": "D60"
+    },
+    {
+     "rowId": "rw_dml6uliir6p5",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_a377hquq7mmr",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_clmhxi252sfa",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_4zfjplj2sh5c",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_er3z2anuf7f4",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_rn4rmpxy6k4x",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    },
+    {
+     "rowId": "rw_5vg3intkq3bh",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Henneberger Variation",
+     "eco": "D63"
+    },
+    {
+     "rowId": "rw_tzjrrssl746l",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Henneberger Variation",
+     "eco": "D63"
+    },
+    {
+     "rowId": "rw_ugpvdpcpjnvx",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Henneberger Variation",
+     "eco": "D63"
+    },
+    {
+     "rowId": "rw_j5ppxwrnrrvb",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Main Line",
+     "eco": "D63"
+    },
+    {
+     "rowId": "rw_ewxopc2zkbed",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Attack",
+     "eco": "D65"
+    },
+    {
+     "rowId": "rw_kyy2z2udrpgp",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Bd3 Line",
+     "eco": "D66"
+    },
+    {
+     "rowId": "rw_jeosxs4gwnx3",
+     "name": "Neo-Grünfeld Defense: Exchange Variation",
+     "eco": "D71"
+    },
+    {
+     "rowId": "rw_r3pbvbhshrdn",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_2vdfspqi4qoe",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_4psc3bzwuu5f",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_hnygftycypec",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_cuxs2kujfr3w",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_kwwcxzfq5w53",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_esrfwyw2kpuc",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_wtn6hn5773rz",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_5t6snh5mehmi",
+     "name": "Neo-Grünfeld Defense: Ultra-Delayed Exchange Variation",
+     "eco": "D79"
+    },
+    {
+     "rowId": "rw_wpbtymnqxwfg",
+     "name": "Catalan Opening: Tarrasch Defense",
+     "eco": "E01"
+    },
+    {
+     "rowId": "rw_43hrvjchamlj",
+     "name": "Catalan Opening: Closed",
+     "eco": "E06"
+    },
+    {
+     "rowId": "rw_gzkqz5rosjlw",
+     "name": "Queen's Indian Defense: Capablanca Variation",
+     "eco": "E16"
+    },
+    {
+     "rowId": "rw_vtutusvj3tvh",
+     "name": "Queen's Indian Defense: Capablanca Variation",
+     "eco": "E16"
+    },
+    {
+     "rowId": "rw_j4hllwbj7hk5",
+     "name": "Queen's Indian Defense: Capablanca Variation",
+     "eco": "E16"
+    },
+    {
+     "rowId": "rw_lsjvdl6rex63",
+     "name": "Queen's Indian Defense: Riumin Variation",
+     "eco": "E16"
+    },
+    {
+     "rowId": "rw_2rtjqa7tad6z",
+     "name": "Queen's Indian Defense: Riumin Variation",
+     "eco": "E16"
+    },
+    {
+     "rowId": "rw_pxaxzjli7ofm",
+     "name": "Nimzo-Indian Defense: Classical Variation, Zurich Variation",
+     "eco": "E33"
+    },
+    {
+     "rowId": "rw_pctxncrlswdz",
+     "name": "Nimzo-Indian Defense: Classical Variation, Zurich Variation",
+     "eco": "E33"
+    },
+    {
+     "rowId": "rw_gwh3uxkvyu3b",
+     "name": "Nimzo-Indian Defense: Classical Variation, Zurich Variation",
+     "eco": "E33"
+    },
+    {
+     "rowId": "rw_xvvnzkj5r34z",
+     "name": "Nimzo-Indian Defense: Normal Variation, Ragozin Variation",
+     "eco": "E51"
+    },
+    {
+     "rowId": "rw_j35s3dc2gxwz",
+     "name": "Nimzo-Indian Defense: Normal Variation, Ragozin Variation",
+     "eco": "E51"
+    },
+    {
+     "rowId": "rw_ygjafgcqajtl",
+     "name": "Nimzo-Indian Defense: Normal Variation, Gligoric System, Exchange Variation",
+     "eco": "E54"
+    }
+   ],
+   "removed": [
+    {
+     "rowId": "rw_xa4jzdhbd7zd",
+     "name": "English Opening: Symmetrical Variation, Four Knights Variation",
+     "eco": "A35"
+    },
+    {
+     "rowId": "rw_jf5bs7uqquzp",
+     "name": "Pterodactyl Defense: Eastern, Rhamphorhynchus",
+     "eco": "B06"
+    },
+    {
+     "rowId": "rw_kxvx3onyf4hu",
+     "name": "Italian Game: Classical Variation, Giuoco Pianissimo",
+     "eco": "C54"
+    },
+    {
+     "rowId": "rw_hwcz4tabbia6",
+     "name": "Queen's Gambit Declined: Orthodox Defense, Rubinstein Variation",
+     "eco": "D61"
+    }
+   ],
+   "renamed": [
+    {
+     "rowId": "rw_l3ieh47delvy",
+     "from": "Robatsch Defense",
+     "to": "Robatsch Defense: Rossolimo Variation",
+     "eco": "A41"
+    },
+    {
+     "rowId": "rw_7d7g3itoknic",
+     "from": "Pterodactyl Defense: Eastern, Pterodactyl",
+     "to": "Pterodactyl Defense: Eastern, Rhamphorhynchus",
+     "eco": "B06"
+    },
+    {
+     "rowId": "rw_yqhmshfkpykj",
+     "from": "French Defense: Classical Variation",
+     "to": "French Defense, Classical, 4. Bg5",
+     "eco": "C12"
+    },
+    {
+     "rowId": "rw_2uabg3pmmyhr",
+     "from": "Catalan Opening: Closed",
+     "to": "Catalan Opening: Open Defense",
+     "eco": "E01"
+    }
+   ],
+   "hubs": {},
+   "courses": {}
+  }
+ ]
+}

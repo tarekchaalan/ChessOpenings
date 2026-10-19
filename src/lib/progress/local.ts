@@ -1,6 +1,7 @@
 /**
- * Guest-mode progress persistence in localStorage. Mirrors the server-side
- * tables so the dashboard renders identically for guests and account holders.
+ * v1 guest progress persistence (cot.v1.* keys). No longer used by the app
+ * (the v2 store is lib/progress/store.ts); kept for the v1 fixture generator
+ * that the migration tests run on (ADR 0003).
  */
 import { START_RATING } from "@/lib/scoring";
 import { SrsCard, cardKey, dueCards } from "@/lib/srs";

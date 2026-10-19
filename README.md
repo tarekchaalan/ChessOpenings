@@ -40,8 +40,9 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
 2. Apply the schema — either:
    - `supabase link --project-ref <ref> && supabase db push`, or
    - paste `supabase/migrations/0001_schema.sql` into the SQL editor.
-3. Seed the theory tables (used server-side to validate quiz answers):
-   - `psql "$DATABASE_URL" -f supabase/seed.sql`, or without psql:
+3. Seed the theory tables (used server-side to validate answers). They are
+   numbered files under 1 MB in `supabase/seed/`, applied in name order:
+   - `for f in supabase/seed/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done`, or without psql:
      `NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:remote`
 4. Copy `.env.example` to `.env.local` and fill in
    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -49,7 +50,8 @@ localStorage. The versioned dataset ships in `public/data/openings.v1.json`.
    Redirect URLs (needed for magic-link sign-in).
 
 Local stack instead: `supabase start && supabase db reset` applies migrations
-and `seed.sql` automatically.
+and `seed/*.sql` automatically. Migrating an existing v1 project (user data):
+see the rollout in `docs/design/0004-supabase-v2.md`.
 
 ### Server API routes (@supabase/server)
 
@@ -85,30 +87,45 @@ Clients never write ratings, SRS state, or attempts. The server:
 
 ## Data pipeline
 
+The opening data is **live**: everything under `public/data/all-openings/` (`*.tsv`, any name, subfolders allowed) is the source of truth. Design: `docs/design/0001-data-pipeline-and-identity.md`.
+
 ```bash
-npm run ingest                   # rebuild the dataset from pinned sources
-npm run ingest -- --skip-corpus  # names/graph only (no frequency stats)
+npm run dev               # next dev + a watcher; edits to the TSVs show up in the open app within seconds
+npm run openings:build    # one-shot build of every artifact (also runs as predev/prebuild)
+npm run openings:check    # exit 1 if artifacts are stale or the data has errors (part of npm run lint)
+npm run corpus:build      # rarely: rebuild master-game position stats from the pinned corpus
+npm test                  # unit tests (Vitest)
+npm run test:e2e          # end-to-end tests (Playwright; starts its own dev server)
 ```
 
-The ingest (`scripts/ingest.ts`):
+**TSV format.** A header row is required and columns are matched by name: `eco`, `name` and `pgn` are required; extra columns are kept. UTF-8, BOM or not, LF or CRLF; blank lines and `#` comments are ignored. Non-`.tsv` files are ignored with a warning.
 
-1. Downloads the ECO database from `lichess-org/chess-openings` at the commit
-   pinned in `scripts/sources.json`, plus the broadcast months pinned there
-   (cached in `data/cache/`; requires the `zstd` CLI — the dumps are
-   multi-frame archives that node:zlib cannot stream).
-2. Replays all ~3,700 named lines with chess.js into a variation graph keyed
-   by EPD (FEN minus move clocks) — transposition-aware by construction.
-3. Streams ~180k professional games through the graph (both players ≥2200,
-   deduplicated), accumulating per-position and per-move game counts and
-   W/D/L results while each game remains in book, plus the top "off book"
-   moves per position for the explorer.
-4. Emits:
-   - `public/data/openings.v1.json` — the compact runtime dataset
-   - `public/data/openings.meta.json` — version, source pins, counts, sha256
-   - `supabase/seed.sql` — theory tables for server-side validation
+**Validation never crashes the app.**
 
-Same pins ⇒ the same dataset, so re-ingest is reproducible; bump
-`datasetVersion` in `scripts/sources.json` when changing sources.
+| Problem | Effect |
+|---|---|
+| Illegal move | Reported as `file:line` with the ply and token. The row is skipped. In dev, the app stays on the last good data; `openings:check` exits 1. |
+| Bad ECO | Warning; row kept |
+| Empty name | Error; row skipped |
+| Duplicate move sequence | Warning; the first name wins and the others become aliases |
+
+**Identity.** Every row gets a stable `rowId` derived from its moves, so renames and edits never re-attach progress to the wrong opening. Each build writes a changelog (`openings.changelog.json`, shown at `/changes`) with added, removed and renamed lines.
+
+**Artifacts (committed).**
+
+| File | Content |
+|---|---|
+| `public/data/openings.v2.json` | Runtime dataset (`graph@2`) |
+| `public/data/openings.v2.meta.json` | Hashes, counts, warnings |
+| `public/data/openings.changelog.json` | Changelog |
+| `public/data/legacy-map.v1.json` | v1 index → v2 identity |
+| `data/derived/position-stats.v1.json.gz` | Master statistics for every position up to ply 38 (≥ 3 games) |
+
+The position stats are built from the lichess broadcast months pinned in `scripts/sources.json` (both players ≥ 2200, de-duplicated). Because they are a separate artifact, new lines get frequencies and W/D/L instantly, with no corpus download. `corpus:build` uses the `zstd` CLI when present, else a pure-JS decoder.
+
+**Production.** Data changes ship with a rebuild and deploy: `prebuild` regenerates every artifact, so dropping or editing TSV files needs no code change and no manual step. Deployed clients re-check the dataset hash on window focus (at most every 10 minutes) and show the same "Openings updated" toast.
+
+The legacy `npm run ingest` (v1 dataset `openings.v1.json` and the v1 seed `supabase/seed.v1.sql`) stays until the Supabase v2 migration ships. `openings.v1.json` is also the identity baseline for migrating v1 progress.
 
 ## Keyboard
 
@@ -138,7 +155,7 @@ src/lib/quiz/                quiz engines: local (guest) + remote (RPC)
 src/lib/progress/            progress stores: localStorage + Supabase
 src/components/              board, explorer, learn, quiz, dashboard, auth
 supabase/migrations/         schema, RLS, RPCs
-supabase/seed.sql            generated theory data
+supabase/seed/               generated v2 theory data (< 1 MB files, name order)
 ```
 
 ## Notes
@@ -148,3 +165,11 @@ supabase/seed.sql            generated theory data
   at runtime and falls back silently to the seeded stats when unreachable.
 - Guest progress is not merged into an account on sign-in (by design: the
   leaderboard only counts server-validated answers).
+
+## Engine
+
+Stockfish 19 (lite, single-threaded WASM, from the [`stockfish`](https://github.com/nmrugg/stockfish.js) npm package) powers the trainer's eval bar (Stats tab, off by default) and the engine verdict and refutation for off-book mistakes. `predev`/`prebuild` copy it into `public/engine/` (gitignored, 1.85 MB, 1.2 MB gzipped). The browser loads it in a Web Worker only on first use. Without it, both features stay hidden.
+
+## Third-party licences
+
+[chessground](https://github.com/lichess-org/chessground) and [Stockfish](https://github.com/official-stockfish/Stockfish) (via [stockfish.js](https://github.com/nmrugg/stockfish.js)) are GPL-3.0. Distributing the app with them carries the GPL-3.0's obligations. Stockfish's licence ships next to the engine as `/engine/COPYING.txt`, and the corresponding source for both is linked above.

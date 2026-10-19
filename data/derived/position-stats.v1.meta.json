@@ -1,0 +1,29 @@
+{
+  "format": "chess-openings-trainer/position-stats@1",
+  "source": {
+    "source": "database.lichess.org/broadcast",
+    "description": "Lichess official OTB broadcast database (professional over-the-board games)",
+    "months": [
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06"
+    ],
+    "minElo": 2200
+  },
+  "maxPly": 38,
+  "minGames": 3,
+  "counts": {
+    "gamesSeen": 179384,
+    "gamesIncluded": 33019,
+    "gamesDeduplicated": 14,
+    "illegal": 0,
+    "positions": 31026,
+    "moves": 30696
+  },
+  "sha256": "0d4cc77060341885f464d79c1879a01c901f2f93f6cf7a9cff54f1007eeb8284",
+  "bytesGzip": 465193,
+  "bytesJson": 2877210
+}

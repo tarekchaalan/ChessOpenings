@@ -22,6 +22,8 @@ import Board from "@/components/Board";
 import OpeningSearch from "@/components/OpeningSearch";
 import WinBar from "@/components/WinBar";
 import { useDataset } from "@/lib/hooks";
+import { positionTarget, trainHref } from "@/lib/catalog-client";
+import { nameSegments } from "@/lib/openings-build/model";
 import { LineState, replayLine, pushSan } from "@/lib/line";
 import { fetchMasterStats, LiveStats } from "@/lib/lichess";
 import { playMoveSound, preloadSounds } from "@/lib/sound";
@@ -224,22 +226,7 @@ function Explorer({ ds }: { ds: Dataset }) {
           onPlay={play}
           live={live}
         />
-        {opening && (
-          <div className="flex gap-2">
-            <Link
-              href={`/learn/${opening.id}`}
-              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <GraduationCap size={16} /> Learn this opening
-            </Link>
-            <Link
-              href={`/quiz/${opening.id}`}
-              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-edge bg-surface text-sm font-medium hover:bg-surface-2 transition-colors"
-            >
-              <Swords size={16} /> Quiz me
-            </Link>
-          </div>
-        )}
+        <TrainLinks ds={ds} epd={line.epd} side={orientation} />
         <KeyboardHints />
       </div>
     </div>
@@ -263,7 +250,10 @@ function OpeningHeader({ opening, line }: { opening: Opening | null; line: LineS
       <div className="min-w-0 flex-1">
         {opening ? (
           <>
-            <div className="font-medium leading-tight truncate">{opening.name}</div>
+            {/* the name breadcrumb: "Ruy Lopez › Closed › Breyer Defense" */}
+            <div className="font-medium leading-tight truncate" data-testid="opening-name" title={opening.name}>
+              {nameSegments(opening.name).join(" › ")}
+            </div>
             <div className="text-xs text-muted font-mono">{opening.eco}</div>
           </>
         ) : (
@@ -462,6 +452,46 @@ function MovesPanel({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * "Learn this line" (the best course and line through this position for the
+ * side you're viewing from, from the build's position index) and "Train from
+ * here" (Drill limited to the course's lines below this position).
+ */
+function TrainLinks({ ds, epd, side }: { ds: Dataset; epd: string; side: "white" | "black" }) {
+  const node = ds.byEpd.get(epd);
+  const t = node === undefined ? null : positionTarget(ds, node, side);
+  if (!t) {
+    return (
+      <p className="text-xs text-muted rounded-lg border border-dashed border-edge px-3 py-2" data-testid="no-course">
+        No {side} course reaches this position. Flip the board to see the other side’s courses.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1.5" data-testid="train-links">
+      <div className="flex gap-2">
+        <Link
+          href={trainHref(t)}
+          data-testid="learn-this-line"
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-accent text-accent-fg text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          <GraduationCap size={16} /> Learn this line
+        </Link>
+        <Link
+          href={`/train/${t.hub.slug}/${t.system.slug}/${t.system.side}?mode=drill&under=${encodeURIComponent(ds.nodes[t.at].epd)}`}
+          data-testid="train-from-here"
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-edge bg-surface text-sm font-medium hover:bg-surface-2 transition-colors"
+        >
+          <Swords size={16} /> Train from here
+        </Link>
+      </div>
+      <p className="text-[11px] text-muted truncate">
+        As {side} · {t.system.name}
+      </p>
     </div>
   );
 }

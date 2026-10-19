@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import ReviewSession from "@/components/quiz/ReviewSession";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Review",
-  description: "Spaced-repetition review of the opening positions you've missed.",
-};
-
-export default function ReviewPage() {
-  return <ReviewSession />;
+export default function QuizReviewPage() {
+  redirect("/train/review");
 }

@@ -9,6 +9,8 @@
  *   openings  = the 3.7k named ECO lines; each points at its defining node
  */
 
+import type { RawDatasetV2 } from "./openings-build/dataset";
+
 export const START_EPD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
 
 export interface MoveStat {
@@ -20,6 +22,8 @@ export interface MoveStat {
   draws: number;
   black: number;
   inTheory: boolean;
+  /** v2: extension edge (master practice beyond named theory) */
+  ext?: boolean;
 }
 
 export interface PositionNode {
@@ -45,10 +49,18 @@ export interface Opening {
   nodeIdx: number;
   /** games reaching the defining position in the corpus */
   popularity: number;
+  /** v2: stable content identity (§4.3); absent in the legacy v1 dataset */
+  rowId?: string;
+  /** v2: other names for the same move sequence */
+  aliases?: string[];
 }
 
 export interface Dataset {
   version: string;
+  /** v2: the raw build output (course derivation runs on it, ADR 0002) */
+  raw?: RawDatasetV2;
+  /** v2 build output hash (cache key + live-reload identity) */
+  outputHash?: string;
   openings: Opening[];
   nodes: PositionNode[];
   byEpd: Map<string, number>;
@@ -63,20 +75,50 @@ interface RawDataset {
 }
 
 // ---------------------------------------------------------------------------
-// Loading (singleton promise; safe to call from any component)
+// Loading: `loadDataset` (v2, live-reloading) lives in lib/dataset-live.ts.
+// `parseDataset` below still reads the v1 file for the legacy map build and
+// the v1 fixture generator (scripts/progress/make-v1-fixture.ts).
 // ---------------------------------------------------------------------------
-let datasetPromise: Promise<Dataset> | null = null;
 
-export function loadDataset(): Promise<Dataset> {
-  if (!datasetPromise) {
-    datasetPromise = fetch("/data/openings.v1.json")
-      .then((r) => {
-        if (!r.ok) throw new Error(`dataset fetch failed: ${r.status}`);
-        return r.json() as Promise<RawDataset>;
-      })
-      .then(parseDataset);
-  }
-  return datasetPromise;
+/** Decode the v2 graph (`chess-openings-trainer/graph@2`) into the shared shape. */
+export function parseDatasetV2(raw: RawDatasetV2, outputHash: string): Dataset {
+  const nodes: PositionNode[] = raw.nodes.map((n, idx) => ({
+    idx,
+    epd: n[0],
+    openingIdx: n[1],
+    games: n[2],
+    white: n[3],
+    draws: n[4],
+    black: n[5],
+    moves: n[6].map((e) => ({
+      san: e[0],
+      to: e[1],
+      games: e[2],
+      white: e[3],
+      draws: e[4],
+      black: e[5],
+      inTheory: (e[6] & 1) === 1,
+      ext: (e[6] & 2) === 2,
+    })),
+  }));
+  const openings: Opening[] = raw.rows.map((r, id) => {
+    const colon = r[2].indexOf(":");
+    return {
+      id,
+      rowId: r[0],
+      eco: r[1],
+      name: r[2],
+      family: colon === -1 ? r[2] : r[2].slice(0, colon),
+      variation: colon === -1 ? null : r[2].slice(colon + 1).trim(),
+      sans: r[3].split(" "),
+      nodeIdx: r[4],
+      popularity: nodes[r[4]].games,
+      aliases: r[5],
+    };
+  });
+  const byEpd = new Map<string, number>();
+  nodes.forEach((n, i) => byEpd.set(n.epd, i));
+  return { version: raw.lib, outputHash, openings, nodes, byEpd, raw };
 }
 
 export function parseDataset(raw: RawDataset): Dataset {

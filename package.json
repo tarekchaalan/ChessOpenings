@@ -3,13 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "predev": "tsx scripts/engine/copy-engine.ts && tsx scripts/openings/build.ts --allow-errors",
+    "dev": "tsx scripts/openings/dev.ts",
+    "dev:next": "next dev",
+    "prebuild": "tsx scripts/engine/copy-engine.ts && tsx scripts/openings/build.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && npm run openings:check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "openings:build": "tsx scripts/openings/build.ts",
+    "openings:check": "tsx scripts/openings/check.ts",
+    "corpus:build": "tsx scripts/openings/corpus.ts",
     "ingest": "tsx scripts/ingest.ts",
     "seed:remote": "tsx scripts/seed-remote.ts",
-    "typecheck": "tsc --noEmit"
+    "engine:copy": "tsx scripts/engine/copy-engine.ts"
   },
   "dependencies": {
     "@supabase/server": "^1.2.0",
@@ -22,17 +32,24 @@
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "stockfish": "19.0.1",
+    "ts-fsrs": "^5.4.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "chokidar": "^5.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "fzstd": "^0.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.5"
   }
 }

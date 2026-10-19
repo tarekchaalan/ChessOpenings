@@ -45,3 +45,7 @@ next-env.d.ts
 .gstack/
 
 .claude
+# playwright
+/test-results/
+/playwright-report/
+/public/engine/

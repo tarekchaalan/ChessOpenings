@@ -1,10 +1,6 @@
-import QuizStart from "@/components/quiz/QuizStart";
+import LegacyRedirect from "@/components/legacy/LegacyRedirect";
 
-export default async function QuizOpeningPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function LegacyQuizPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <QuizStart openingId={Number(id)} />;
+  return <LegacyRedirect id={Number(id)} kind="quiz" />;
 }

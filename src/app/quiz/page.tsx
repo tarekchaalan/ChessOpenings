@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
-import QuizHome from "@/components/quiz/QuizHome";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Quiz",
-  description: "Drill openings against real theory — the app plays the opponent, you find the book move.",
-};
-
+/** Quizzing is Review now: the dashboard's Review card (and /train/review). */
 export default function QuizPage() {
-  return <QuizHome />;
+  redirect("/");
 }

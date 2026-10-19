@@ -16,8 +16,9 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/supabase/AuthProvider";
+import { useHydrated } from "@/lib/hooks";
 import { getSupabase } from "@/lib/supabase/client";
-import { clearLocalData, setPref, usePrefs } from "@/lib/prefs";
+import { clearLocalData, clearV1Backup, setPref, usePrefs, v1BackupSize } from "@/lib/prefs";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 
@@ -281,14 +282,120 @@ function PreferencesTab() {
         />
       </Card>
 
-      <Card title="Learn mode">
-        <Toggle
-          label="Show hint arrows by default"
-          description="The green next-expected-move arrow when starting a walkthrough. You can still toggle it during a lesson with H."
-          checked={prefs.learnHints}
-          onChange={(v) => setPref("learnHints", v)}
-        />
+      <Card title="Training">
+        <div className="space-y-5">
+          <Toggle
+            label="Hint arrows in Learn"
+            description="The green arrow on the move to play while learning a line. Recall and Review never show it."
+            checked={prefs.learnHints}
+            onChange={(v) => setPref("learnHints", v)}
+          />
+          <Toggle
+            label="Skip known moves"
+            description="Learn fast-forwards the moves you already know, so each new line starts where it gets new."
+            checked={prefs.skipKnown}
+            onChange={(v) => setPref("skipKnown", v)}
+          />
+          <Range
+            label="Opponent reply delay"
+            value={prefs.replyDelayMs}
+            min={0}
+            max={1500}
+            step={100}
+            format={(v) => (v === 0 ? "instant" : `${(v / 1000).toFixed(1)} s`)}
+            onChange={(v) => setPref("replyDelayMs", v)}
+          />
+          <Range label="New lines per day" hint="Learn suggests up to this many new lines a day; you can always learn more." value={prefs.dailyNewLines} min={1} max={30} step={1} format={String} onChange={(v) => setPref("dailyNewLines", v)} />
+          <Range
+            label="Reviews per day"
+            hint="When more are due, the rest wait for the next day(s), lowest recall first. Nothing is dropped."
+            value={prefs.dailyReviewCap}
+            min={20}
+            max={500}
+            step={10}
+            format={String}
+            onChange={(v) => setPref("dailyReviewCap", v)}
+          />
+          <Range
+            label="Target retention"
+            hint="How likely you should be to remember a move when it comes up. Higher means more reviews."
+            value={Math.round(prefs.targetRetention * 100)}
+            min={80}
+            max={97}
+            step={1}
+            format={(v) => `${v}%`}
+            onChange={(v) => setPref("targetRetention", v / 100)}
+          />
+        </div>
       </Card>
+
+      <Card title="Board">
+        <div className="grid grid-cols-4 gap-2 max-w-sm" role="radiogroup" aria-label="Board theme">
+          {(["brown", "blue", "green", "gray"] as const).map((t) => (
+            <button
+              key={t}
+              role="radio"
+              aria-checked={prefs.boardTheme === t}
+              onClick={() => setPref("boardTheme", t)}
+              className={`rounded-lg border p-1.5 text-xs capitalize ${prefs.boardTheme === t ? "border-accent bg-accent-soft font-medium" : "border-edge bg-surface text-muted"}`}
+            >
+              <span className={`board-swatch board-theme-${t} block w-full aspect-square rounded mb-1`} aria-hidden />
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-2 max-w-sm" role="radiogroup" aria-label="Motion">
+          {(
+            [
+              { id: "system", label: "Motion: system" },
+              { id: "reduce", label: "Reduce" },
+              { id: "full", label: "Full" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.id}
+              role="radio"
+              aria-checked={prefs.motion === m.id}
+              onClick={() => setPref("motion", m.id)}
+              className={`h-10 rounded-lg border text-sm ${prefs.motion === m.id ? "border-accent bg-accent-soft text-accent font-medium" : "border-edge bg-surface text-muted hover:text-foreground"}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Range({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  const id = `range-${label.replace(/\W+/g, "-").toLowerCase()}`;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <label htmlFor={id} className="text-sm font-medium">{label}</label>
+        <span className="text-sm text-muted tabular-nums">{format(value)}</span>
+      </div>
+      {hint && <p className="text-xs text-muted mt-0.5">{hint}</p>}
+      <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full mt-2 accent-[var(--accent)]" />
     </div>
   );
 }
@@ -331,11 +438,11 @@ function Toggle({
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────
+/** openings.v2.meta.json (the fields shown here) */
 interface DatasetMeta {
-  version: string;
-  counts: { openings: number; positions: number; theoryMoves: number; corpusGamesIncluded: number };
-  builtWith?: { gamesCorpus?: { months?: string[] } | null };
-  sha256: string;
+  outputHash: string;
+  counts: { rows: number; positions: number; theoryMoves: number; statsCoveredPositions: number };
+  coverage: { hubs: number; courses: number; lines: number };
 }
 
 function DataTab() {
@@ -343,9 +450,14 @@ function DataTab() {
   const [meta, setMeta] = useState<DatasetMeta | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [cleared, setCleared] = useState(false);
+  // the v1 backup the migration kept (ADR 0003): removed only on its own confirmation
+  const hydrated = useHydrated();
+  const [backupGone, setBackupGone] = useState(false);
+  const backup = hydrated && !backupGone ? v1BackupSize() : 0;
+  const [confirmBackup, setConfirmBackup] = useState(false);
 
   useEffect(() => {
-    fetch("/data/openings.meta.json")
+    fetch("/data/openings.v2.meta.json")
       .then((r) => (r.ok ? r.json() : null))
       .then(setMeta)
       .catch(() => setMeta(null));
@@ -366,26 +478,21 @@ function DataTab() {
     <div className="space-y-4">
       <Card title="Opening dataset">
         {meta ? (
-          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
-            <dt className="text-muted">Version</dt>
-            <dd className="font-mono">{meta.version}</dd>
+          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5" data-testid="dataset-meta">
             <dt className="text-muted">Named openings</dt>
-            <dd>{meta.counts.openings.toLocaleString()}</dd>
+            <dd>{meta.counts.rows.toLocaleString()}</dd>
+            <dt className="text-muted">Openings · courses · lines</dt>
+            <dd>
+              {meta.coverage.hubs.toLocaleString()} · {meta.coverage.courses.toLocaleString()} · {meta.coverage.lines.toLocaleString()}
+            </dd>
             <dt className="text-muted">Positions</dt>
             <dd>{meta.counts.positions.toLocaleString()}</dd>
-            <dt className="text-muted">Games behind the stats</dt>
-            <dd>{meta.counts.corpusGamesIncluded.toLocaleString()} professional games</dd>
-            {meta.builtWith?.gamesCorpus?.months && (
-              <>
-                <dt className="text-muted">Corpus window</dt>
-                <dd>
-                  {meta.builtWith.gamesCorpus.months[0]} →{" "}
-                  {meta.builtWith.gamesCorpus.months.at(-1)}
-                </dd>
-              </>
-            )}
-            <dt className="text-muted">Checksum</dt>
-            <dd className="font-mono text-xs pt-0.5">{meta.sha256.slice(0, 16)}…</dd>
+            <dt className="text-muted">Theory moves</dt>
+            <dd>{meta.counts.theoryMoves.toLocaleString()}</dd>
+            <dt className="text-muted">Positions with master stats</dt>
+            <dd>{meta.counts.statsCoveredPositions.toLocaleString()}</dd>
+            <dt className="text-muted">Build</dt>
+            <dd className="font-mono text-xs pt-0.5">{meta.outputHash.slice(0, 16)}…</dd>
           </dl>
         ) : (
           <p className="text-sm text-muted">Dataset metadata unavailable.</p>
@@ -413,6 +520,33 @@ function DataTab() {
           </button>
         )}
       </Card>
+
+      {backup > 0 && (
+        <Card title="Backup from the previous version">
+          <p className="text-sm text-muted mb-3">
+            Your progress from the previous trainer was converted to the new one. A copy of the original ({Math.max(1, Math.round(backup / 1024))} KB) is kept in
+            this browser in case anything needs recovering. Clearing local data doesn&apos;t remove it.
+          </p>
+          <button
+            data-testid="clear-v1-backup"
+            onClick={() => {
+              if (!confirmBackup) {
+                setConfirmBackup(true);
+                setTimeout(() => setConfirmBackup(false), 4000);
+                return;
+              }
+              clearV1Backup();
+              setBackupGone(true);
+            }}
+            className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm transition-colors ${
+              confirmBackup ? "border-danger bg-danger text-white" : "border-edge bg-surface text-danger hover:border-danger"
+            }`}
+          >
+            <Trash2 size={15} />
+            {confirmBackup ? "Click again to delete the backup for good" : "Delete the backup"}
+          </button>
+        </Card>
+      )}
     </div>
   );
 }
