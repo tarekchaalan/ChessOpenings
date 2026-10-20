@@ -60,7 +60,7 @@ export function parseLichessGame(g: LichessGame, me: string): NormalGame | Skip 
   };
 }
 
-interface LichessUser {
+export interface LichessUser {
   id?: string;
   username?: string;
   disabled?: boolean;

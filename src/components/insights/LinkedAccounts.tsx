@@ -3,14 +3,20 @@
  * Link a Chess.com / Lichess username (ADR 0006): check that it exists (show
  * the profile name and ratings), then import. Linked accounts show their
  * ratings, the last sync, Re-sync and Unlink. Used on /insights and in
- * Settings → Account.
+ * Settings → Account. A platform with OAuth (ADR 0009: Lichess, and Chess.com
+ * once approved) is connected only by signing in to it, which links it
+ * verified; a guest's button signs them in with it. Without OAuth the
+ * username is typed and stays unverified. The outcome comes back on the URL.
  */
-import { useState } from "react";
-import { Check, Link2, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { BadgeCheck, Check, Link2, Loader2, LogIn, RefreshCw, Trash2 } from "lucide-react";
 import { checkUsername, linkAccount, readScope, setIncludeBullet, syncAccount, unlinkAccount } from "@/lib/insights/client";
 import { InsightsFetchError, validUsername, type Profile } from "@/lib/insights/fetch";
 import { PLATFORM_NAME, PLATFORMS, TIME_CLASSES, type LinkedAccount, type Platform, type Ratings } from "@/lib/insights/types";
 import type { InsightsStatus } from "@/lib/insights/client";
+import { callbackErrorMessage } from "@/lib/auth";
+import { isOAuthProvider, oauthEnabled, oauthStartUrl } from "@/lib/oauth/providers";
 
 export function RatingsLine({ ratings }: { ratings: Ratings }) {
   const parts = TIME_CLASSES.filter((tc) => ratings[tc]).map((tc) => `${tc} ${ratings[tc]!.rating}${ratings[tc]!.provisional ? " (provisional)" : ""}`);
@@ -39,10 +45,13 @@ export default function LinkedAccounts({
   showStatus?: boolean;
 }) {
   const [bullet, setBullet] = useState(() => readScope().timeClasses.includes("bullet"));
+  const typed = PLATFORMS.filter((p) => !oauthEnabled(p));
+  const connected = PLATFORMS.filter(oauthEnabled);
   return (
     <div className="space-y-4" data-testid="linked-accounts">
+      <OAuthNotice />
       {PLATFORMS.map((p) => (
-        <PlatformRow key={p} platform={p} account={accounts[p] ?? null} status={status} showStatus={showStatus} />
+        <PlatformRow key={p} platform={p} account={accounts[p] ?? null} status={status} showStatus={showStatus} signedIn={signedIn} />
       ))}
       <label className="flex items-center gap-2 text-sm text-muted">
         <input
@@ -59,14 +68,67 @@ export default function LinkedAccounts({
       <p className="text-xs text-muted">
         Your browser fetches your last 350 public, rated games straight from lichess.org and chess.com.
         {signedIn ? " We save a summary of each game's opening to your account; unlinking deletes it." : " As a guest, the summaries stay in this browser."}{" "}
-        A linked username isn&apos;t verified: anyone can type a public name.
+        {connected.length > 0 && ` ${connected.map((p) => PLATFORM_NAME[p]).join(" and ")} ${connected.length === 1 ? "is" : "are"} connected by signing in, so the account is verified and you can sign in here with it.`}
+        {typed.length > 0 && ` A typed ${typed.map((p) => PLATFORM_NAME[p]).join(" or ")} username isn't verified: anyone can type a public name.`}
       </p>
     </div>
   );
 }
 
-function PlatformRow({ platform, account, status, showStatus }: { platform: Platform; account: LinkedAccount | null; status: InsightsStatus; showStatus: boolean }) {
+/**
+ * The outcome of a verify round trip (?oauth=lichess&verified=1 or
+ * &oauth_error=…), shown once; the query is then removed from the URL.
+ */
+function OAuthNotice() {
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const p = url.searchParams.get("oauth");
+    if (!isOAuthProvider(p)) return;
+    const error = url.searchParams.get("oauth_error");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the query is only readable after mount
+    setNotice(error ? { kind: "error", text: callbackErrorMessage(error)! } : { kind: "ok", text: `${PLATFORM_NAME[p]} connected and verified. You can also sign in with it now.` });
+    for (const k of ["oauth", "oauth_error", "verified"]) url.searchParams.delete(k);
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
+  if (!notice) return null;
+  return (
+    <p role={notice.kind === "error" ? "alert" : "status"} className={`text-sm ${notice.kind === "error" ? "text-danger-ink" : "text-accent"}`} data-testid="oauth-notice">
+      {notice.text}
+    </p>
+  );
+}
+
+/** Sign in to the platform and come back here: links it for a signed-in player, signs a guest in with it. */
+function OAuthLink({ platform, signedIn, label, primary = false, testId }: { platform: Platform; signedIn: boolean; label: string; primary?: boolean; testId: string }) {
+  const path = usePathname();
+  return (
+    <a
+      href={oauthStartUrl(platform, signedIn ? "link" : "signin", path)}
+      className={`inline-flex items-center gap-2 px-4 min-h-[40px] rounded-md text-sm ${primary ? "bg-accent text-accent-fg font-medium hover:opacity-90" : "border border-edge bg-surface hover:bg-surface-2"}`}
+      data-testid={testId}
+    >
+      {primary ? <LogIn size={14} aria-hidden /> : <BadgeCheck size={14} aria-hidden />} {label}
+    </a>
+  );
+}
+
+function PlatformRow({
+  platform,
+  account,
+  status,
+  showStatus,
+  signedIn,
+}: {
+  platform: Platform;
+  account: LinkedAccount | null;
+  status: InsightsStatus;
+  showStatus: boolean;
+  signedIn: boolean;
+}) {
   const name = PLATFORM_NAME[platform];
+  /** connected by signing in to the platform, never by a typed name */
+  const oauth = oauthEnabled(platform);
   const [input, setInput] = useState("");
   const [checking, setChecking] = useState(false);
   const [found, setFound] = useState<Profile | null>(null);
@@ -108,7 +170,13 @@ function PlatformRow({ platform, account, status, showStatus }: { platform: Plat
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h3 className="font-medium">{name}</h3>
           <span className="text-sm">{account.username}</span>
-          <span className="text-xs text-muted">linked, not verified</span>
+          {account.verified ? (
+            <span className="text-xs text-accent inline-flex items-center gap-1 self-center" data-testid={`verified-${platform}`}>
+              <BadgeCheck size={13} aria-hidden /> verified
+            </span>
+          ) : (
+            <span className="text-xs text-muted">linked, not verified</span>
+          )}
         </div>
         <p className="text-xs text-muted mt-1">
           <RatingsLine ratings={account.ratings} /> · synced {ago(account.lastSyncedAt)}
@@ -122,6 +190,9 @@ function PlatformRow({ platform, account, status, showStatus }: { platform: Plat
             {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
             {busy ? "Importing…" : "Re-sync"}
           </button>
+          {oauth && !account.verified && (
+            <OAuthLink platform={platform} signedIn={signedIn} label={signedIn ? `Verify with ${name}` : `Sign in with ${name} to verify`} testId={`verify-${platform}`} />
+          )}
           <button
             onClick={() => {
               if (!confirmUnlink) {
@@ -155,6 +226,20 @@ function PlatformRow({ platform, account, status, showStatus }: { platform: Plat
             {status.last.added ? `${status.last.added} new games imported.` : "No new games."}
           </p>
         )}
+      </div>
+    );
+  }
+
+  if (oauth) {
+    return (
+      <div className="rounded-lg border border-edge p-4" data-testid={`link-${platform}`}>
+        <h3 className="font-medium mb-2">{name}</h3>
+        <OAuthLink platform={platform} signedIn={signedIn} label={signedIn ? `Connect ${name}` : `Continue with ${name}`} primary testId={`connect-${platform}`} />
+        <p className="text-xs text-muted mt-2">
+          {signedIn
+            ? `You sign in on ${name}; the account you sign in with is linked and verified, and its games are imported.`
+            : `Signs you in here with your ${name} account (or creates one) and links it, verified.`}
+        </p>
       </div>
     );
   }

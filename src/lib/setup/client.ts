@@ -85,6 +85,25 @@ export async function saveSetup(patch: SetupPatch): Promise<Setup> {
 export const openSetup = () => set({ open: true });
 export const closeSetup = () => set({ open: false });
 
+/** "Connect Lichess" in the modal leaves the page for the OAuth round trip; reopen the modal when it comes back (ADR 0009). */
+const RESUME = "cot.setup.resume";
+export function resumeSetupAfterRedirect(): void {
+  try {
+    window.sessionStorage.setItem(RESUME, "1");
+  } catch {
+    // the first-login modal reopens by itself; only a re-run from Settings needs this
+  }
+}
+export function takeSetupResume(): boolean {
+  try {
+    const on = window.sessionStorage.getItem(RESUME) === "1";
+    window.sessionStorage.removeItem(RESUME);
+    return on;
+  } catch {
+    return false;
+  }
+}
+
 export function useSetup(userId: string | null, authLoading: boolean): State {
   const s = useSyncExternalStore(subscribe, () => state, () => SERVER);
   useEffect(() => {

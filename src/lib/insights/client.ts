@@ -9,6 +9,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { loadDataset } from "@/lib/dataset-live";
 import { modelOf } from "@/lib/courses-client";
 import { getSupabase } from "@/lib/supabase/client";
+import { oauthEnabled } from "@/lib/oauth/providers";
 import { fromRow, type GameRow } from "@/lib/server/insights";
 import { maxBookPly } from "./book";
 import { fetchGames, InsightsFetchError, lookupProfile, type FetchProgress, type FetchResult, type Profile } from "./fetch";
@@ -176,6 +177,21 @@ async function load(userId: string | null): Promise<void> {
   if (!userId || serverless) data = readLocal(storage());
   set({ data, serverless, loaded: true, status: { phase: "idle" } });
   await rematchAll(userId);
+  await importConnected(userId);
+}
+
+/**
+ * Accounts connected by signing in to the platform (ADR 0009) arrive linked by
+ * the OAuth callback, before the browser has imported anything: import them
+ * on the first load after the redirect.
+ */
+async function importConnected(userId: string | null): Promise<void> {
+  if (!signedIn()) return;
+  for (const p of PLATFORMS) {
+    if (state.userId !== userId) return;
+    const a = state.data.accounts[p];
+    if (a?.verified && !a.lastSyncedAt) await syncAccount(p);
+  }
 }
 
 async function rematchAll(userId: string | null): Promise<void> {
@@ -217,7 +233,8 @@ export async function linkAccount(p: Profile): Promise<boolean> {
   const account: LinkedAccount = {
     platform: p.platform,
     username: p.username,
-    verified: false,
+    // the server says (a name the player proved by OAuth stays verified); guests can't verify
+    verified: same ? old!.verified : false,
     ratings: p.ratings,
     linkedAt: same ? old!.linkedAt : new Date().toISOString(),
     lastSyncedAt: same ? old!.lastSyncedAt : null,
@@ -229,6 +246,7 @@ export async function linkAccount(p: Profile): Promise<boolean> {
       set({ status: { phase: "error", platform: p.platform, message: String(r.json.message ?? `Couldn't link the account (${r.status}).`) } });
       return false;
     }
+    account.verified = r.json.verified === true;
   }
   const base = same ? state.data : withoutPlatform(state.data, p.platform);
   persist({ ...base, accounts: { ...base.accounts, [p.platform]: account } });
@@ -336,7 +354,8 @@ export async function saveGuestToAccount(): Promise<boolean> {
   if (!signedIn()) return false;
   const uid = state.userId;
   for (const a of Object.values(guest.accounts)) {
-    if (!a) continue;
+    // a platform with OAuth is connected by signing in to it (ADR 0009), not by the name a guest typed; its games import again then
+    if (!a || oauthEnabled(a.platform)) continue;
     const ok = await linkAccount({ platform: a.platform, username: a.username, ratings: a.ratings });
     if (!ok || state.userId !== uid) return false;
     const rows = guest.games.filter((g) => g.platform === a.platform);

@@ -20,6 +20,7 @@ import { cancelSync, clearGuest, guestData, saveGuestToAccount, syncStale, useIn
 import { recommend, type Rec } from "@/lib/insights/recommend";
 import { useVerdicts, verdictKey, type GroupVerdict } from "@/lib/insights/verdicts";
 import { MIN_GAMES } from "@/lib/insights/weights";
+import { oauthEnabled } from "@/lib/oauth/providers";
 import { PLATFORM_NAME, PLATFORMS, TIME_CLASSES, type LinkedAccount, type Platform, type Ratings, type Side } from "@/lib/insights/types";
 import type { Dataset } from "@/lib/openings";
 
@@ -67,11 +68,12 @@ export default function InsightsClient() {
             <section className="rounded-xl border border-edge bg-surface p-5 mb-8" data-testid="insights-onboarding">
               <h2 className="font-medium">Link your Chess.com or Lichess account</h2>
               <p className="text-sm text-muted mt-1 mb-4">
-                Enter your username. We import your recent rated games and compare every opening move with the theory in this trainer.
-                {!user && configured && (
+                {PLATFORMS.some(oauthEnabled) ? "Connect by signing in to the site" : "Enter your username"}. We import your recent rated games and compare every opening move with the theory in this trainer.
+                {!user && configured && PLATFORMS.some((p) => !oauthEnabled(p)) && (
                   <>
                     {" "}
-                    You&apos;re a guest: results stay in this browser. <Link href="/auth" className="text-accent underline">Sign in</Link> to keep them on your account.
+                    As a guest, a typed {PLATFORMS.filter((p) => !oauthEnabled(p)).map((p) => PLATFORM_NAME[p]).join(" or ")} username keeps its results in this browser.{" "}
+                    <Link href="/auth" className="text-accent underline">Sign in</Link> to keep them on your account.
                   </>
                 )}
               </p>
@@ -139,8 +141,10 @@ function GuestSavePrompt({ hasServerData }: { hasServerData: boolean }) {
   const [guest] = useState(() => guestData());
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState(false);
-  const n = guest.games.length;
-  if (gone || hasServerData || !Object.keys(guest.accounts).length) return null;
+  // only typed links can be saved by name; OAuth platforms are connected by signing in (saveGuestToAccount)
+  const saveable = PLATFORMS.filter((p) => guest.accounts[p] && !oauthEnabled(p));
+  const n = guest.games.filter((g) => saveable.includes(g.platform)).length;
+  if (gone || hasServerData || !saveable.length) return null;
   return (
     <div className="rounded-lg border border-accent/50 bg-accent-soft px-4 py-3 mb-4 text-sm flex flex-wrap items-center gap-3" data-testid="guest-save">
       <span>

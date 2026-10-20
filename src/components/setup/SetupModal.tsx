@@ -1,20 +1,23 @@
 "use client";
 /**
- * First-login setup (ADR 0008): link Lichess / Chess.com, tell us your level
+ * First-login setup (ADR 0008): link Lichess / Chess.com (by signing in to it
+ * where the platform has OAuth, ADR 0009; else a checked username), tell us your level
  * when no linked rating is reliable yet, then see the estimated Elo and what
  * it sets up. Finishing links the accounts (as Insights does), stores the
  * answers (save_setup), sets the level's defaults and imports games in the
  * background.
  */
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, Sparkles, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BadgeCheck, Check, Loader2, LogIn, Sparkles, X } from "lucide-react";
 import { checkUsername, linkAccount, syncAccount } from "@/lib/insights/client";
 import { InsightsFetchError, validUsername, type Profile } from "@/lib/insights/fetch";
 import { PLATFORM_NAME, PLATFORMS, type LinkedAccount, type Platform } from "@/lib/insights/types";
 import { RatingsLine } from "@/components/insights/LinkedAccounts";
 import { basisText, estimateElo, estimateRecord, ignoredText, SELF_LEVELS, type Estimate, type SelfLevel } from "@/lib/rating/estimate";
 import { levelOf, storeBand, TIER_LABEL } from "@/lib/rating/level";
-import { saveSetup, type Setup } from "@/lib/setup/client";
+import { resumeSetupAfterRedirect, saveSetup, type Setup } from "@/lib/setup/client";
+import { oauthEnabled, oauthStartUrl } from "@/lib/oauth/providers";
 import { DEFAULT_PREFS, getPrefs, setPref } from "@/lib/prefs";
 
 type Step = "accounts" | "level" | "result";
@@ -134,11 +137,19 @@ export default function SetupModal({
               Your Lichess and Chess.com ratings give us an estimated Elo, so suggestions, course depth and your daily plan fit your level. Link one, both or neither.
             </p>
             <div className="mt-4 space-y-4">
-              {PLATFORMS.map((p) => (
-                <AccountField key={p} platform={p} profile={found[p] ?? null} onFound={(prof) => setFound((f) => ({ ...f, [p]: prof ?? undefined }))} />
-              ))}
+              {PLATFORMS.map((p) =>
+                oauthEnabled(p) ? (
+                  <ConnectField key={p} platform={p} account={linked[p] ?? null} />
+                ) : (
+                  <AccountField key={p} platform={p} profile={found[p] ?? null} onFound={(prof) => setFound((f) => ({ ...f, [p]: prof ?? undefined }))} />
+                )
+              )}
             </div>
-            <p className="text-xs text-muted mt-3">Your browser checks the username on lichess.org / chess.com. We keep the username, ratings and a summary of each game&apos;s opening.</p>
+            <p className="text-xs text-muted mt-3">
+              {PLATFORMS.some(oauthEnabled) && "Connecting takes you to sign in on that site and back here; the account you sign in with is linked, verified. "}
+              {PLATFORMS.some((p) => !oauthEnabled(p)) && "A typed username is checked by your browser on the site. "}
+              We keep the username, ratings and a summary of each game&apos;s opening.
+            </p>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
               <button type="button" onClick={() => setStep("level")} className="text-sm text-muted hover:text-foreground underline">
                 I don&apos;t play online
@@ -265,6 +276,41 @@ export default function SetupModal({
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** A platform with OAuth: connected (by the round trip, so it comes in through `linked`) or a Connect button. */
+function ConnectField({ platform, account }: { platform: Platform; account: LinkedAccount | null }) {
+  const path = usePathname();
+  const name = PLATFORM_NAME[platform];
+  const start = (label: string, testId: string) => (
+    <a
+      href={oauthStartUrl(platform, "link", path)}
+      onClick={resumeSetupAfterRedirect}
+      className="mt-2 inline-flex items-center gap-1.5 h-10 px-3 rounded-md border border-edge text-sm hover:bg-surface-2"
+      data-testid={testId}
+    >
+      <LogIn size={14} aria-hidden /> {label}
+    </a>
+  );
+  return (
+    <div className="rounded-lg border border-edge p-3" data-testid={`setup-${platform}`}>
+      <p className="text-sm font-medium">{name}</p>
+      {account ? (
+        <>
+          <p className="text-sm mt-2 flex items-start gap-1.5" data-testid={`setup-${platform}-found`}>
+            {account.verified ? <BadgeCheck size={15} className="text-accent mt-0.5 shrink-0" aria-hidden /> : <Check size={15} className="text-muted mt-0.5 shrink-0" aria-hidden />}
+            <span>
+              <strong className="break-all">{account.username}</strong>: <RatingsLine ratings={account.ratings} />
+              {account.verified ? <span className="sr-only"> (verified)</span> : <span className="text-muted"> (not verified)</span>}
+            </span>
+          </p>
+          {!account.verified && start(`Verify with ${name}`, `setup-${platform}-verify`)}
+        </>
+      ) : (
+        start(`Connect ${name}`, `setup-${platform}-connect`)
+      )}
+    </div>
   );
 }
 

@@ -1,13 +1,15 @@
 "use client";
 /**
- * Email sign-in: password, magic link (or its one-time code), sign-up and
- * password reset. Guests keep local progress; accounts add sync + leaderboard.
+ * Sign-in: Lichess / Chess.com (OAuthButtons), or email: password, magic link
+ * (or its one-time code), sign-up and password reset. Guests keep local
+ * progress; accounts add sync + leaderboard.
  */
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, Loader2, Mail, X } from "lucide-react";
 import Logo from "@/components/Logo";
+import OAuthButtons from "@/components/auth/OAuthButtons";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { passwordValid, PASSWORD_POLICY_TEXT } from "@/lib/password";
 import { authErrorMessage, callbackErrorMessage, callbackUrl, EMAIL_COOLDOWN_S, safeNext, USERNAME_RE, USERNAME_RULE } from "@/lib/auth";
@@ -244,6 +246,8 @@ export default function AuthClient() {
         <h1 className="text-xl font-semibold tracking-tight">{TITLES[mode].h}</h1>
         <p className="text-sm text-muted mt-1">{TITLES[mode].p}</p>
       </div>
+
+      {mode !== "forgot" && <OAuthButtons next={next} />}
 
       <div className="flex gap-1 rounded-lg bg-surface-2 p-1 mb-5" role="tablist" aria-label="Sign-in method">
         {tab("signin", "Sign in")}

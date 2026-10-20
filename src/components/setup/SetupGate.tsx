@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/supabase/AuthProvider";
 import { useInsights } from "@/lib/insights/client";
 import { estimateRecord } from "@/lib/rating/estimate";
 import { storeBand } from "@/lib/rating/level";
-import { closeSetup, saveSetup, usePlayerEstimate, useSetup } from "@/lib/setup/client";
+import { closeSetup, openSetup, saveSetup, takeSetupResume, usePlayerEstimate, useSetup } from "@/lib/setup/client";
 import SetupModal from "./SetupModal";
 
 const LATER = "cot.setup.later";
@@ -49,6 +49,11 @@ export default function SetupGate() {
       saveSetup({ estimated_elo: estimate.elo, estimate: estimateRecord(estimate) }).catch(() => {});
     }
   }, [loading, uid, st.loaded, st.unavailable, st.setup, ins.loaded, estimate, level]);
+
+  // back from connecting an account inside the modal: show it again, now with that account
+  useEffect(() => {
+    if (uid && st.loaded && takeSetupResume()) openSetup();
+  }, [uid, st.loaded]);
 
   const ready = configured && !!uid && st.loaded && !st.unavailable && ins.loaded && !pathname.startsWith("/auth");
   const wanted = ready && ((st.setup === null && later !== uid && !laterFor(uid)) || st.open);

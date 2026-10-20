@@ -43,6 +43,8 @@ begin
     insert into rate_limits (user_id, bucket, calls) values (u, 'follow', 1);
     -- setup
     insert into player_setup (user_id, completed_at, estimated_elo) values (u, now(), 1500);
+    -- sign-in identities
+    insert into oauth_identities (provider, provider_user_id, user_id, username) values ('lichess', 'id_' || left(u::text, 8) || right(u::text, 2), u, 'someone');
   end loop;
   insert into blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-0000000000aa');
 end $$;
