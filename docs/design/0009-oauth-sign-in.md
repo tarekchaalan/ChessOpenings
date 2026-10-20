@@ -24,7 +24,14 @@
    - Signing in verifies a linked account with the same name, but never re-links one the player unlinked.
    - Typing the username of your own identity in the link form keeps it verified.
 6. **No tokens are kept.** The Lichess token is revoked (`DELETE /api/token`) as soon as `/api/account` is read. Chess.com's ID token is read once. Its signature isn't checked, because it came straight from the token endpoint over TLS in exchange for our code and verifier (OIDC Core § 3.1.3.7). Audience, expiry and the optional issuer are checked.
-7. **Configuration.**
+7. **Insights accounts are connected only by signing in** (owner's follow-up, 2026-10-20: "when they connect their accounts for insights, they login with chess.com/lichess only, this links their account, and makes sure they're verified"). For a platform with OAuth configured (always Lichess; Chess.com once its credentials are set):
+   - The linked-accounts panel and the setup modal show **Connect Lichess**, with no username field. For a guest, the button is **Continue with Lichess**: it signs them in (or creates the account), and that links and verifies Lichess.
+   - The server enforces it. `POST /api/insights/link` answers 403 `proof_required` for a name that isn't the player's own OAuth identity. Re-linking the name already linked still refreshes its ratings.
+   - The browser imports a connected account's games on the first load after the redirect (`importConnected`). A re-run setup modal reopens after the round trip.
+   - Older typed links stay, marked "not verified", with **Verify with Lichess**. Nothing is deleted.
+   - "Save guest insights to your account" skips OAuth platforms: those are connected by signing in, and their games import again.
+   - Until Chess.com is approved, Chess.com keeps the typed, unverified username (owner's choice). It switches to Connect as soon as `NEXT_PUBLIC_CHESSCOM_CLIENT_ID` and the endpoints are set.
+8. **Configuration.**
    - Lichess needs nothing. `LICHESS_CLIENT_ID` defaults to the site's host, which is what the Lichess consent screen shows. `LICHESS_HOST` is for testing against a local lila.
    - Chess.com buttons appear when `NEXT_PUBLIC_CHESSCOM_CLIENT_ID` is set. The server also needs `CHESSCOM_AUTHORIZE_URL` and `CHESSCOM_TOKEN_URL`, and optionally `CHESSCOM_CLIENT_SECRET`, `CHESSCOM_SCOPE` (default `openid profile`) and `CHESSCOM_ISSUER`.
    - Redirect URI to register with Chess.com: `https://chessopenings.tarekchaalan.com/api/auth/oauth/chesscom/callback`.

@@ -3,6 +3,11 @@
  * from the captured fixtures (no live calls): link → import → every section
  * renders with trainable links, sorting, unlink, unknown user, axe AA in light
  * and dark, and phone width without horizontal scroll.
+ *
+ * Lichess is connected only by signing in to it (ADR 0009): its row is a
+ * "Continue with Lichess" link, so the Lichess imports here start from a link
+ * this browser already holds (as one made before OAuth would be). Chess.com,
+ * without OAuth credentials in e2e, is still linked by a typed username.
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
@@ -40,12 +45,17 @@ async function mockPlatforms(page: Page) {
   return calls;
 }
 
-async function linkLichess(page: Page) {
-  const row = page.getByTestId("link-lichess");
-  await row.getByLabel("Lichess username").fill("Zhigalko_Sergei");
-  await row.getByRole("button", { name: "Check" }).click();
-  await expect(row.getByText(/Found Zhigalko_Sergei on Lichess/)).toBeVisible();
-  await row.getByRole("button", { name: /Link and import/ }).click();
+/**
+ * A Lichess link this browser already holds, never synced (as a typed link
+ * made before OAuth would be): /insights imports it on load.
+ */
+async function importLichess(page: Page) {
+  if (!page.url().startsWith("http")) await page.goto("/insights");
+  await page.evaluate(() => {
+    const account = { platform: "lichess", username: "Zhigalko_Sergei", verified: false, ratings: {}, linkedAt: "2026-10-01T00:00:00.000Z", lastSyncedAt: null, lastGameAt: null };
+    localStorage.setItem("cot.v2.insights", JSON.stringify({ accounts: { lichess: account }, games: [] }));
+  });
+  await page.goto("/insights");
   await expect(page.getByTestId("import-done")).toContainText("Lichess: 43 new games imported");
 }
 
@@ -53,11 +63,24 @@ test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(NOW);
 });
 
-test("guest: link Lichess, import, every section renders with trainable links", async ({ page }) => {
-  const calls = await mockPlatforms(page);
+test("guest: Lichess is connected by signing in to it, never by a typed name", async ({ page }) => {
+  await mockPlatforms(page);
   await page.goto("/insights");
   await expect(page.getByTestId("insights-onboarding")).toBeVisible();
-  await linkLichess(page);
+  const row = page.getByTestId("link-lichess");
+  await expect(row.getByLabel("Lichess username")).toHaveCount(0);
+  await expect(row.getByRole("link", { name: "Continue with Lichess" })).toHaveAttribute("href", "/api/auth/oauth/lichess?intent=signin&next=%2Finsights");
+  // Chess.com has no OAuth credentials here: still a typed username, called unverified
+  await expect(page.getByTestId("link-chesscom").getByLabel("Chess.com username")).toBeVisible();
+  await expect(page.getByTestId("linked-accounts")).toContainText("A typed Chess.com username isn't verified");
+});
+
+test("guest: a Lichess import, every section renders with trainable links", async ({ page }) => {
+  const calls = await mockPlatforms(page);
+  await importLichess(page);
+  // an older typed link: unverified, with a way to verify it by signing in
+  await expect(page.getByTestId("linked-lichess")).toContainText("linked, not verified");
+  await expect(page.getByTestId("verify-lichess")).toHaveText(/Sign in with Lichess to verify/);
 
   // the documented export query, and nothing sent to our own server
   const exportCall = calls.find((u) => u.includes("/api/games/user/"))!;
@@ -111,17 +134,16 @@ test("guest: Chess.com import keeps only rated standard games in scope; unlink d
 test("unknown username: a clear error, nothing linked", async ({ page }) => {
   await mockPlatforms(page);
   await page.goto("/insights");
-  const row = page.getByTestId("link-lichess");
-  await row.getByLabel("Lichess username").fill("nobody_zz9");
+  const row = page.getByTestId("link-chesscom");
+  await row.getByLabel("Chess.com username").fill("nobody_zz9");
   await row.getByRole("button", { name: "Check" }).click();
-  await expect(row.getByRole("alert")).toHaveText("No Lichess player with that username.");
+  await expect(row.getByRole("alert")).toHaveText("No Chess.com player with that username.");
   await expect(row.getByRole("button", { name: /Link and import/ })).toHaveCount(0);
 });
 
 test("dashboard card and Settings show the linked account", async ({ page }) => {
   await mockPlatforms(page);
-  await page.goto("/insights");
-  await linkLichess(page);
+  await importLichess(page);
   await page.goto("/");
   await expect(page.getByTestId("insights-card")).toBeVisible();
   await expect(page.getByTestId("insights-card")).not.toContainText("Link Chess.com or Lichess");
@@ -138,7 +160,7 @@ for (const theme of ["light", "dark"] as const) {
     const scan = async () => (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
     let bad = await scan();
     expect(bad.map((v) => `${v.id}: ${v.nodes[0]?.target.join(" ")}`)).toEqual([]);
-    await linkLichess(page);
+    await importLichess(page);
     await page.waitForTimeout(400);
     bad = await scan();
     expect(bad.map((v) => `${v.id}: ${v.nodes[0]?.target.join(" ")}`)).toEqual([]);
@@ -149,7 +171,7 @@ test("phone width: no horizontal scroll, results as cards", async ({ page }) => 
   await page.setViewportSize({ width: 375, height: 800 });
   await mockPlatforms(page);
   await page.goto("/insights");
-  await linkLichess(page);
+  await importLichess(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   const wide = await page.evaluate(() => [...document.querySelectorAll("body *")].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 8).map((e) => `${e.tagName}.${(e.className || "").toString().slice(0, 60)} ${Math.round(e.getBoundingClientRect().right)}`));
   expect(overflow, wide.join("\n")).toBeLessThanOrEqual(0);
@@ -159,7 +181,7 @@ test("phone width: no horizontal scroll, results as cards", async ({ page }) => 
 test("repeat mistakes: a verdict from the Lichess analysis, and Train this line opens the trainer at the position", async ({ page }) => {
   await mockPlatforms(page);
   await page.goto("/insights");
-  await linkLichess(page);
+  await importLichess(page);
   const first = page.getByTestId("repeat").first();
   await expect(first).toBeVisible();
   await expect(first).toContainText(/Lichess analysis|Stockfish|not evaluated/);
@@ -177,7 +199,7 @@ test("screenshots for the QA notes", async ({ page }) => {
     await page.goto("/insights");
     await page.evaluate(() => localStorage.removeItem("cot.v2.insights"));
     await page.reload();
-    await linkLichess(page);
+    await importLichess(page);
     await page.waitForTimeout(500);
     await page.screenshot({ path: `docs/qa/insights/insights-${theme}-${w}.png`, fullPage: true });
   }

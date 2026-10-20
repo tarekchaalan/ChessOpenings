@@ -70,6 +70,9 @@ export function providerConfig(p: OAuthProvider, env: Env, host: string): Provid
   };
 }
 
+/** Whether linking this platform must go through OAuth: always Lichess; Chess.com once its credentials are set. */
+export const oauthConfigured = (p: OAuthProvider, env: Env) => providerConfig(p, env, "-") !== null;
+
 export const redirectUri = (origin: string, p: OAuthProvider) => `${origin}/api/auth/oauth/${p}/callback`;
 
 /** `path` (a safeNext path) on `origin` with `params` added to its query. */

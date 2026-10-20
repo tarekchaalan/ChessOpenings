@@ -155,6 +155,23 @@ describe("link / sync / unlink", () => {
     expect((await link(db, U, { platform: "chesscom", username: "zhigalko_sergei", ratings: {} })).body.verified).toBe(false);
   });
 
+  it("where OAuth is on, a typed name is refused unless it's the player's identity; the linked name can still refresh", async () => {
+    const { db, accounts, identities } = fakeDb();
+    const lichessOnly = { proofRequired: (p: Platform) => p === "lichess" };
+    const typed = await link(db, U, { platform: "lichess", username: "Zhigalko_Sergei", ratings: {} }, lichessOnly);
+    expect(typed.status).toBe(403);
+    expect(typed.body.code).toBe("proof_required");
+    expect(accounts.size).toBe(0);
+    // Chess.com before its OAuth is configured: typed and unverified
+    expect((await link(db, U, { platform: "chesscom", username: "hikaru", ratings: {} }, lichessOnly)).body).toMatchObject({ ok: true, verified: false });
+    // an older typed link keeps refreshing its ratings
+    accounts.set(`${U}|lichess`, { ...accounts.get(`${U}|chesscom`)!, platform: "lichess", username: "old_typed" });
+    expect((await link(db, U, { platform: "lichess", username: "old_typed", ratings: RATINGS }, lichessOnly)).status).toBe(200);
+    expect((await link(db, U, { platform: "lichess", username: "someone_else", ratings: {} }, lichessOnly)).status).toBe(403);
+    identities.set(`${U}|lichess`, "Zhigalko_Sergei");
+    expect((await link(db, U, { platform: "lichess", username: "Zhigalko_Sergei", ratings: {} }, lichessOnly)).body).toMatchObject({ ok: true, verified: true });
+  });
+
   it("unlink deletes that platform's games only", async () => {
     const { db, games, accounts } = fakeDb();
     await link(db, U, { platform: "lichess", username: "Zhigalko_Sergei", ratings: RATINGS });

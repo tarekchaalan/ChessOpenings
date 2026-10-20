@@ -6,11 +6,16 @@
  * route would. Covers: established accounts → estimate → dashboard, catalog,
  * course depth and Settings; a brand-new account at Lichess's "1500?" → asked
  * for a level; "not now", skip and re-running setup; axe AA and phone width.
+ *
+ * Lichess is connected by signing in to it (ADR 0009), so its accounts here
+ * start as the OAuth callback leaves them (connectLichess); Chess.com, without
+ * OAuth credentials in e2e, is still a checked username.
  */
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { lichessProfile, type LichessUser } from "../src/lib/insights/sources/lichess";
 
 const STUB = `http://127.0.0.1:${process.env.E2E_SUPABASE_PORT ?? 54398}`;
 const FIX = join(__dirname, "../src/lib/insights/__tests__/fixtures");
@@ -56,7 +61,6 @@ async function mockPlatforms(page: Page) {
 async function mockInsightsRoutes(page: Page, who: Who) {
   await page.route("**/api/insights/link", async (route) => {
     const b = route.request().postDataJSON() as { platform: string; username: string; ratings: unknown };
-    const lit = (v: string) => `'${v.replace(/'/g, "''")}'`;
     await sql(
       `insert into linked_accounts (user_id, platform, username, ratings) values ('${IDS[who]}', ${lit(b.platform)}, ${lit(b.username)}, ${lit(JSON.stringify(b.ratings))})
        on conflict (user_id, platform) do update set username = excluded.username, ratings = excluded.ratings`
@@ -65,6 +69,16 @@ async function mockInsightsRoutes(page: Page, who: Who) {
   });
   await page.route("**/api/insights/sync", (route) => route.fulfill({ json: { ok: true, stored: 0 } }));
 }
+
+const lit = (v: string) => `'${v.replace(/'/g, "''")}'`;
+
+/** What the Lichess OAuth callback stores (ADR 0009): the identity, and the linked account, verified, with the account's ratings. */
+async function connectLichess(who: Who, user: LichessUser & { id: string }) {
+  const p = lichessProfile(user)!;
+  await sql(`insert into oauth_identities (provider, provider_user_id, user_id, username) values ('lichess', ${lit(user.id)}, '${IDS[who]}', ${lit(p.username)})`);
+  await sql(`insert into linked_accounts (user_id, platform, username, verified, ratings) values ('${IDS[who]}', 'lichess', ${lit(p.username)}, true, ${lit(JSON.stringify(p.ratings))})`);
+}
+const ZHIGALKO = () => JSON.parse(fx("lichess-user.json")) as LichessUser & { id: string };
 
 async function signIn(browser: Browser, who: Who): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
@@ -81,18 +95,16 @@ async function signIn(browser: Browser, who: Who): Promise<Page> {
 const modal = (page: Page) => page.getByTestId("setup-modal");
 
 test("established accounts → estimated Elo → dashboard, catalog, course depth, Settings", async ({ browser }) => {
+  await connectLichess("dave", ZHIGALKO());
   const page = await signIn(browser, "dave");
   await expect(modal(page)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("dialog", { name: "Link your chess accounts" })).toBeVisible();
-  // Continue needs at least one account
-  await expect(modal(page).getByRole("button", { name: "Continue" })).toBeDisabled();
-
-  await page.getByLabel("Lichess username").fill("nobody_here");
-  await page.getByTestId("setup-lichess").getByRole("button", { name: "Check" }).click();
-  await expect(page.getByTestId("setup-lichess")).toContainText("No Lichess player with that username.");
-  await page.getByLabel("Lichess username").fill("Zhigalko_Sergei");
-  await page.getByTestId("setup-lichess").getByRole("button", { name: "Check" }).click();
+  // Lichess came connected (no username field for it); Chess.com is checked by name
   await expect(page.getByTestId("setup-lichess-found")).toContainText("blitz 2815");
+  await expect(page.getByLabel("Lichess username")).toHaveCount(0);
+  await page.getByLabel("Chess.com username").fill("nobody_here");
+  await page.getByTestId("setup-chesscom").getByRole("button", { name: "Check" }).click();
+  await expect(page.getByTestId("setup-chesscom")).toContainText("No Chess.com player with that username.");
   await page.getByLabel("Chess.com username").fill("hikaru");
   await page.getByTestId("setup-chesscom").getByRole("button", { name: "Check" }).click();
   await expect(page.getByTestId("setup-chesscom-found")).toContainText("rapid 2838");
@@ -114,7 +126,9 @@ test("established accounts → estimated Elo → dashboard, catalog, course dept
 
   // stored: setup done with the estimate, accounts linked, leaderboard rating untouched
   expect(await sql(`select completed_at is not null, estimated_elo, skipped from player_setup where user_id = '${IDS.dave}'`)).toBe(`t|${elo}|f`);
-  expect(await sql(`select string_agg(platform || ':' || username, ',' order by platform) from linked_accounts where user_id = '${IDS.dave}'`)).toBe("chesscom:hikaru,lichess:Zhigalko_Sergei");
+  expect(await sql(`select string_agg(platform || ':' || username || ':' || verified, ',' order by platform) from linked_accounts where user_id = '${IDS.dave}'`)).toBe(
+    "chesscom:hikaru:false,lichess:Zhigalko_Sergei:true"
+  );
   expect(await sql(`select rating from profiles where id = '${IDS.dave}'`)).toBe("800");
 
   // dashboard: level card and "Start here" courses
@@ -145,10 +159,9 @@ test("established accounts → estimated Elo → dashboard, catalog, course dept
 });
 
 test("a brand-new account at 1500? doesn't count: asked for a level, which then sets everything", async ({ browser }) => {
+  await connectLichess("erin", { id: "newbie", username: "Newbie", perfs: { blitz: { games: 3, rating: 1500, prov: true }, rapid: { games: 0, rating: 1500, prov: true } } });
   const page = await signIn(browser, "erin");
   await expect(modal(page)).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Lichess username").fill("newbie");
-  await page.getByTestId("setup-lichess").getByRole("button", { name: "Check" }).click();
   await expect(page.getByTestId("setup-lichess-found")).toContainText("blitz 1500 (provisional)");
   await modal(page).getByRole("button", { name: "Continue" }).click();
 
@@ -180,6 +193,9 @@ test("a brand-new account at 1500? doesn't count: asked for a level, which then 
 test("not now lasts the session; skip is remembered; setup can run later from Settings", async ({ browser }) => {
   const page = await signIn(browser, "frank");
   await expect(modal(page)).toBeVisible({ timeout: 30_000 });
+  // nothing linked: Continue needs an account, and Lichess is connected by signing in to it
+  await expect(modal(page).getByRole("button", { name: "Continue" })).toBeDisabled();
+  await expect(page.getByTestId("setup-lichess-connect")).toHaveAttribute("href", /^\/api\/auth\/oauth\/lichess\?intent=link&next=%2F/);
   await page.keyboard.press("Escape");
   await expect(modal(page)).toBeHidden();
   await page.goto("/openings");
@@ -216,6 +232,7 @@ test("not now lasts the session; skip is remembered; setup can run later from Se
 
 for (const theme of ["light", "dark"] as const) {
   test(`setup modal: axe AA, 0 serious/critical, and phone width (${theme})`, async ({ browser }) => {
+    await connectLichess("dave", ZHIGALKO());
     const page = await signIn(browser, "dave");
     await page.emulateMedia({ colorScheme: theme });
     await expect(modal(page)).toBeVisible({ timeout: 30_000 });
@@ -226,9 +243,9 @@ for (const theme of ["light", "dark"] as const) {
       for (const v of r.violations.filter((v) => v.impact === "serious" || v.impact === "critical")) bad.push(`${name}: ${v.id} (${v.impact}) ×${v.nodes.length} — ${v.nodes[0]?.target.join(" ")}`);
     };
     await audit("accounts");
-    await page.getByLabel("Lichess username").fill("Zhigalko_Sergei");
-    await page.getByTestId("setup-lichess").getByRole("button", { name: "Check" }).click();
-    await expect(page.getByTestId("setup-lichess-found")).toBeVisible();
+    await page.getByLabel("Chess.com username").fill("hikaru");
+    await page.getByTestId("setup-chesscom").getByRole("button", { name: "Check" }).click();
+    await expect(page.getByTestId("setup-chesscom-found")).toBeVisible();
     await audit("accounts (found)");
     await modal(page).getByRole("button", { name: "Continue" }).click();
     await expect(page.getByTestId("setup-estimate")).toBeVisible();

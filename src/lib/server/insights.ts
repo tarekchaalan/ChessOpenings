@@ -12,7 +12,7 @@
 import { Chess } from "chess.js";
 import { epdOf } from "@/lib/openings-build/replay";
 import { normSan } from "@/lib/openings-build/model";
-import { PLATFORMS, TIME_CLASSES, type Platform, type Ratings, type Summary, type TimeClass } from "@/lib/insights/types";
+import { PLATFORM_NAME, PLATFORMS, TIME_CLASSES, type Platform, type Ratings, type Summary, type TimeClass } from "@/lib/insights/types";
 import type { Result } from "./train";
 
 export const MAX_GAMES_PER_SYNC = 200;
@@ -206,8 +206,14 @@ export function fromRow(r: GameRow): Summary {
 
 const platformOf = (b: Record<string, unknown>): Platform | null => (PLATFORMS.includes(b.platform as Platform) ? (b.platform as Platform) : null);
 
-/** POST /api/insights/link {platform, username, ratings} */
-export async function link(db: InsightsDb, userId: string, body: unknown): Promise<Result> {
+/**
+ * POST /api/insights/link {platform, username, ratings}. Where the platform has
+ * OAuth (`proofRequired`, ADR 0009) a new name must be the player's own
+ * identity: accounts are connected by signing in to the platform (the OAuth
+ * callback links and verifies them), not by typing a name. Re-linking the name
+ * already linked only refreshes its ratings.
+ */
+export async function link(db: InsightsDb, userId: string, body: unknown, opts: { proofRequired?: (p: Platform) => boolean } = {}): Promise<Result> {
   if (!isObj(body)) return bad("invalid body");
   const platform = platformOf(body);
   if (!platform) return bad("platform");
@@ -223,6 +229,9 @@ export async function link(db: InsightsDb, userId: string, body: unknown): Promi
   // typing the name of the account the player signs in with keeps its proof
   const proven = await db.identityUsername(userId, platform);
   const verified = !!proven && proven.toLowerCase() === body.username.toLowerCase();
+  if (!verified && opts.proofRequired?.(platform)) {
+    return { status: 403, body: { message: `Connect ${PLATFORM_NAME[platform]} by signing in to it.`, code: "proof_required" } };
+  }
   const row: AccountRow = {
     user_id: userId,
     platform,

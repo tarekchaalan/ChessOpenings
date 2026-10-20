@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * A stand-in for Supabase in the e2e suite: a LOCAL Postgres with the real
- * migrations (0001–0009), behind just enough of PostgREST and GoTrue for the
+ * migrations (all of supabase/migrations), behind just enough of PostgREST and GoTrue for the
  * browser client (supabase-js). Signed-in tests therefore run against the
  * real RLS policies and SECURITY DEFINER functions, not mocks.
  *

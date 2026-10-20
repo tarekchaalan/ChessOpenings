@@ -10,9 +10,15 @@
 import { withSupabase } from "@supabase/server";
 import { link, sync, unlink, type InsightsDb } from "@/lib/server/insights";
 import { supabaseInsightsDb } from "@/lib/server/insights-db";
+import { oauthConfigured } from "@/lib/server/oauth";
 import type { Result } from "@/lib/server/train";
 
-const ACTIONS: Record<string, (db: InsightsDb, userId: string, body: unknown) => Promise<Result>> = { link, sync, unlink };
+const ACTIONS: Record<string, (db: InsightsDb, userId: string, body: unknown) => Promise<Result>> = {
+  // platforms with OAuth are linked by signing in to them (ADR 0009), never by a typed name
+  link: (db, userId, body) => link(db, userId, body, { proofRequired: (p) => oauthConfigured(p, process.env) }),
+  sync,
+  unlink,
+};
 
 const configured = () =>
   Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY && process.env.SUPABASE_JWKS_URL && process.env.SUPABASE_SECRET_KEY);

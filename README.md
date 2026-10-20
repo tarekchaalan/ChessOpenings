@@ -234,7 +234,11 @@ app registration). A first sign-in creates an account named after the Lichess
 user, with Lichess linked and **verified**; signed-in players can connect or
 verify Lichess from Settings → Account or the linked-accounts panel, which
 also lets them sign in with it. No Lichess token is kept (it's revoked right
-after reading the account). Design: `docs/design/0009-oauth-sign-in.md`;
+after reading the account). Insights accounts on a platform with OAuth are
+connected **only** by signing in to it (the panel and the setup modal have no
+username field for it, and `/api/insights/link` refuses unproven names);
+Chess.com keeps a typed, unverified username until its OAuth is configured.
+Design: `docs/design/0009-oauth-sign-in.md`;
 migration `0010_oauth_identities.sql`; tests `src/lib/server/__tests__/oauth.test.ts`,
 `scripts/supabase/test-0010.sh`.
 
