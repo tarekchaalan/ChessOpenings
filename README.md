@@ -227,6 +227,24 @@ Fix / Fill / Grow recommendations, each linking into the trainer. Design:
   live import against real accounts (not part of `npm test`, which only uses
   captured fixtures).
 
+## Sign in with Lichess / Chess.com
+
+`/auth` offers **Continue with Lichess** (OAuth2 with PKCE; Lichess needs no
+app registration). A first sign-in creates an account named after the Lichess
+user, with Lichess linked and **verified**; signed-in players can connect or
+verify Lichess from Settings → Account or the linked-accounts panel, which
+also lets them sign in with it. No Lichess token is kept (it's revoked right
+after reading the account). Design: `docs/design/0009-oauth-sign-in.md`;
+migration `0010_oauth_identities.sql`; tests `src/lib/server/__tests__/oauth.test.ts`,
+`scripts/supabase/test-0010.sh`.
+
+- Lichess needs no new variables (optional `LICHESS_CLIENT_ID`, shown on the
+  consent screen; it defaults to the site's host).
+- Chess.com is wired but off until Chess.com approves the app: then set
+  `NEXT_PUBLIC_CHESSCOM_CLIENT_ID`, `CHESSCOM_AUTHORIZE_URL`,
+  `CHESSCOM_TOKEN_URL` (and `CHESSCOM_CLIENT_SECRET` if issued). Redirect URI:
+  `https://<host>/api/auth/oauth/chesscom/callback`.
+
 ## First-login setup and estimated Elo
 
 On a player's first signed-in visit (right after the email link verifies the

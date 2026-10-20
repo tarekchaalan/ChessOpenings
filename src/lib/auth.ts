@@ -37,6 +37,15 @@ const CALLBACK_MESSAGES: Record<string, string> = {
   bad_code_verifier: "That link was opened in a different browser than the one that requested it. Request a new link here, or use the code from the email.",
   missing_code: "That sign-in link is incomplete. Request a new one below.",
   auth_callback_failed: "Sign-in failed. Please try again.",
+  // Lichess / Chess.com sign-in (lib/server/oauth.ts)
+  oauth_denied: "Sign-in was cancelled. Try again whenever you're ready.",
+  oauth_state: "That sign-in expired or was started in another tab. Please try again.",
+  oauth_failed: "We couldn't confirm that account. Please try again.",
+  oauth_unavailable: "That sign-in option isn't set up on this deployment.",
+  oauth_taken: "That account already signs in to a different account here. Sign in with it instead.",
+  oauth_mismatch: "You signed in as a different account from the one linked here. Unlink it first, or switch accounts on that site and try again.",
+  oauth_closed: "That account is closed.",
+  oauth_signin_needed: "Your session ended before we could finish. Sign in, then try again.",
 };
 
 export function callbackErrorMessage(code: string | null): string | null {

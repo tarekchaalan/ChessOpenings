@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests account deletion on a scratch database of a LOCAL Postgres:
-# local-shim.sql + migrations 0001–0009, then
+# local-shim.sql + every migration, then
 # scripts/supabase/test-deletion.sql. Refuses non-local hosts.
 #   scripts/supabase/local-pg.sh start
 #   DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres scripts/supabase/test-deletion.sh

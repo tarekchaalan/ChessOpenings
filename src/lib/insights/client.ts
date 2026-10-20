@@ -217,7 +217,8 @@ export async function linkAccount(p: Profile): Promise<boolean> {
   const account: LinkedAccount = {
     platform: p.platform,
     username: p.username,
-    verified: false,
+    // the server says (a name the player proved by OAuth stays verified); guests can't verify
+    verified: same ? old!.verified : false,
     ratings: p.ratings,
     linkedAt: same ? old!.linkedAt : new Date().toISOString(),
     lastSyncedAt: same ? old!.lastSyncedAt : null,
@@ -229,6 +230,7 @@ export async function linkAccount(p: Profile): Promise<boolean> {
       set({ status: { phase: "error", platform: p.platform, message: String(r.json.message ?? `Couldn't link the account (${r.status}).`) } });
       return false;
     }
+    account.verified = r.json.verified === true;
   }
   const base = same ? state.data : withoutPlatform(state.data, p.platform);
   persist({ ...base, accounts: { ...base.accounts, [p.platform]: account } });

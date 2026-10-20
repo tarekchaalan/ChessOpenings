@@ -68,6 +68,8 @@ export interface GameRow {
 
 export interface InsightsDb {
   getAccount(userId: string, platform: Platform): Promise<AccountRow | null>;
+  /** the username of the player's OAuth identity for the platform (ADR 0009), or null */
+  identityUsername(userId: string, platform: Platform): Promise<string | null>;
   /** insert or replace the account row (a new username replaces the old row, cascading its games) */
   putAccount(row: AccountRow, replace: boolean): Promise<void>;
   /** update the row only while it is still linked to `username` (case-insensitive) */
@@ -216,13 +218,16 @@ export async function link(db: InsightsDb, userId: string, body: unknown): Promi
   if (same) {
     // re-linking the same account: keep its cursor and counters as they are now
     await db.updateAccount(userId, platform, old.username, { username: body.username, ratings: body.ratings });
-    return { status: 200, body: { ok: true, replaced: false } };
+    return { status: 200, body: { ok: true, replaced: false, verified: old.verified } };
   }
+  // typing the name of the account the player signs in with keeps its proof
+  const proven = await db.identityUsername(userId, platform);
+  const verified = !!proven && proven.toLowerCase() === body.username.toLowerCase();
   const row: AccountRow = {
     user_id: userId,
     platform,
     username: body.username,
-    verified: false,
+    verified,
     ratings: body.ratings,
     last_synced_at: null,
     last_game_at: null,
@@ -232,7 +237,7 @@ export async function link(db: InsightsDb, userId: string, body: unknown): Promi
   };
   // a different username is a different account: its old games go (FK cascade)
   await db.putAccount(row, !!old);
-  return { status: 200, body: { ok: true, replaced: !!old } };
+  return { status: 200, body: { ok: true, replaced: !!old, verified } };
 }
 
 /**

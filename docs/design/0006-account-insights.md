@@ -179,7 +179,7 @@ Every number is computed from the imported summaries. No platform-wide or master
 
 - `linked_accounts(user_id, platform, username, verified, ratings jsonb, visibility, linked_at, last_synced_at, last_game_at)`
   - Primary key `(user_id, platform)`.
-  - `verified` stays false until an ownership proof exists. Chess.com has no OAuth, so a Chess.com link is always "linked", not "verified".
+  - `verified` stays false until an ownership proof exists: since ADR 0009, signing in to Lichess (or Chess.com, once approved) through OAuth.
   - `visibility` (`private` default / `friends` / `public`) is reserved for the friends feature. Nothing reads it yet.
   - Usernames aren't unique across users: anyone can type a public name.
 - `game_summaries`

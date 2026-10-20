@@ -16,6 +16,12 @@ export function supabaseInsightsDb(admin: SupabaseClient): InsightsDb {
     async getAccount(userId, platform) {
       return check(await admin.from("linked_accounts").select("*").eq("user_id", userId).eq("platform", platform).maybeSingle()) as AccountRow | null;
     },
+    async identityUsername(userId, platform) {
+      const res = await admin.from("oauth_identities").select("username").eq("user_id", userId).eq("provider", platform).maybeSingle();
+      // before migration 0010 is applied there are no identities to find
+      if (res.error?.code === "42P01" || res.error?.code === "PGRST205") return null;
+      return (check(res) as { username: string } | null)?.username ?? null;
+    },
     async putAccount(row, replace) {
       if (replace) check(await admin.from("linked_accounts").delete().eq("user_id", row.user_id).eq("platform", row.platform));
       check(await admin.from("linked_accounts").upsert(row, { onConflict: "user_id,platform" }));

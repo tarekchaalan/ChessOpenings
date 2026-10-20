@@ -24,12 +24,17 @@ const RATINGS = { blitz: { rating: 2800, games: 100, provisional: false } };
 function fakeDb() {
   const accounts = new Map<string, AccountRow>();
   const games = new Map<string, GameRow>();
+  /** oauth_identities usernames (0010) */
+  const identities = new Map<string, string>();
   const k = (u: string, p: Platform) => `${u}|${p}`;
   /** the database's now() */
   const clock = { t: NOW.getTime() };
   const db: InsightsDb = {
     async getAccount(u, p) {
       return accounts.get(k(u, p)) ?? null;
+    },
+    async identityUsername(u, p) {
+      return identities.get(k(u, p)) ?? null;
     },
     async putAccount(row, replace) {
       if (replace) await db.deleteAccount(row.user_id, row.platform);
@@ -62,7 +67,7 @@ function fakeDb() {
       return Math.max(0, mine.length - keep);
     },
   };
-  return { db, accounts, games, clock };
+  return { db, accounts, games, identities, clock };
 }
 
 describe("checkSummary", () => {
@@ -138,6 +143,16 @@ describe("link / sync / unlink", () => {
     expect(games.size).toBe(15);
     expect((await link(db, U, { platform: "lichess", username: "someone_else", ratings: {} })).body.replaced).toBe(true);
     expect(games.size).toBe(0);
+  });
+
+  it("a typed username is verified only when it is the player's OAuth identity, and a re-link keeps the flag", async () => {
+    const { db, accounts, identities } = fakeDb();
+    identities.set(`${U}|lichess`, "Zhigalko_Sergei");
+    expect((await link(db, U, { platform: "lichess", username: "someone_else", ratings: {} })).body.verified).toBe(false);
+    expect((await link(db, U, { platform: "lichess", username: "zhigalko_sergei", ratings: {} })).body.verified).toBe(true);
+    expect(accounts.get(`${U}|lichess`)?.verified).toBe(true);
+    expect((await link(db, U, { platform: "lichess", username: "Zhigalko_Sergei", ratings: RATINGS })).body.verified).toBe(true);
+    expect((await link(db, U, { platform: "chesscom", username: "zhigalko_sergei", ratings: {} })).body.verified).toBe(false);
   });
 
   it("unlink deletes that platform's games only", async () => {

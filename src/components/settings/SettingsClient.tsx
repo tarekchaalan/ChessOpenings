@@ -28,6 +28,8 @@ import { authErrorMessage, callbackUrl, USERNAME_RE, USERNAME_RULE } from "@/lib
 import LinkedAccounts from "@/components/insights/LinkedAccounts";
 import { useInsights } from "@/lib/insights/client";
 import PrivacySettings from "./PrivacySettings";
+import SignInMethods from "./SignInMethods";
+import { isPlaceholderEmail } from "@/lib/oauth/providers";
 import { openSetup, usePlayerLevel } from "@/lib/setup/client";
 import { LevelCard } from "@/components/setup/LevelCards";
 
@@ -182,9 +184,15 @@ function AccountTab() {
         )}
       </Card>
 
-      <EmailCard email={user.email ?? ""} pending={user.new_email ?? null} changed={params.get("email") === "changed"} />
+      {/* an account created by Lichess / Chess.com sign-in has a placeholder address: no email to change, no password to reset */}
+      {!isPlaceholderEmail(user.email) && (
+        <>
+          <EmailCard email={user.email ?? ""} pending={user.new_email ?? null} changed={params.get("email") === "changed"} />
+          <ChangePasswordCard email={user.email ?? ""} />
+        </>
+      )}
 
-      <ChangePasswordCard email={user.email ?? ""} />
+      <SignInMethods userId={user.id} email={user.email ?? ""} />
 
       <Card title="Session">
         <button
