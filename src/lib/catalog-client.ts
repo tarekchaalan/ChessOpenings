@@ -168,6 +168,43 @@ export function searchCatalog(ds: Dataset, query: string, limit = 30): SearchHit
   return scored.slice(0, limit).map((s) => hit(s.r));
 }
 
+export interface SearchGroup {
+  /** the opening; null for lines no hub claims */
+  hub: RawHubSummary | null;
+  /** the matching named lines inside it, in hit order */
+  hits: SearchHit[];
+}
+
+/**
+ * Search hits grouped by opening (hub), in order of each opening's best hit,
+ * so "Caro-Kann" is one opening with its variations under it, not 40 rows.
+ * The hub's own canonical line (the signature position) is left out: the
+ * group header stands for it.
+ */
+export function groupSearchHits(ds: Dataset, hits: SearchHit[]): SearchGroup[] {
+  const model = modelOf(ds);
+  const groups: SearchGroup[] = [];
+  const bySlug = new Map<string, SearchGroup>();
+  let orphans: SearchGroup | null = null;
+  for (const h of hits) {
+    if (!h.hub) {
+      if (!orphans) groups.push((orphans = { hub: null, hits: [] }));
+      orphans.hits.push(h);
+      continue;
+    }
+    let g = bySlug.get(h.hub.slug);
+    if (!g) {
+      g = { hub: h.hub, hits: [] };
+      bySlug.set(h.hub.slug, g);
+      groups.push(g);
+    }
+    const row = model.rows[h.row];
+    const canonical = row.name === h.hub.primaryName && row.sans.length <= h.hub.sigma.length;
+    if (!canonical) g.hits.push(h);
+  }
+  return groups;
+}
+
 // ── position → course ─────────────────────────────────────────────────────
 
 export interface Target {

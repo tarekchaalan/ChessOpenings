@@ -12,7 +12,7 @@ import MiniBoard from "@/components/MiniBoard";
 import WinBar from "@/components/WinBar";
 import { useDataset, useHydrated } from "@/lib/hooks";
 import { findSystem, formatMoves, hubHref, hubSummary, loadCourse, modelOf, parseCourseId, type RawHubSummary, type Side } from "@/lib/courses-client";
-import { courseProgressInfo, ECO_VOLUMES, hubCard, reviewMinutes, rowTarget, searchCatalog, trainHref, type SearchHit } from "@/lib/catalog-client";
+import { courseProgressInfo, ECO_VOLUMES, groupSearchHits, hubCard, reviewMinutes, rowTarget, searchCatalog, trainHref, type SearchGroup } from "@/lib/catalog-client";
 import { newLinesFor, useLatestChanges } from "@/lib/changelog-client";
 import { allCards, allCourseProgress, overridesFor, useProgressVersion } from "@/lib/progress/store";
 import { tierLines } from "@/lib/trainer/plan";
@@ -73,7 +73,8 @@ function Catalog({ ds }: { ds: Dataset }) {
   const theirs = hubs.filter((h) => h.side !== side && h.placement === "top" && pass(h, false)).sort((a, b) => b.games - a.games);
   const filtering = against.size + styles.size + levels.size > 0;
   const deferredQ = useDeferredValue(q);
-  const hits = useMemo(() => searchCatalog(ds, deferredQ, 40), [ds, deferredQ]);
+  // grouped by opening, so the cap is on lines, not openings: a big hub (Sicilian, 400 rows) still shows every match
+  const groups = useMemo(() => groupSearchHits(ds, searchCatalog(ds, deferredQ, 200)), [ds, deferredQ]);
   // progress is read once per store change, not per card
   const progressVersion = useProgressVersion();
   const hydrated = useHydrated();
@@ -138,7 +139,7 @@ function Catalog({ ds }: { ds: Dataset }) {
       </div>
 
       {q.trim() ? (
-        <SearchResults ds={ds} hits={hits} side={side} />
+        <SearchResults ds={ds} groups={groups} side={side} />
       ) : (
         <>
           <ContinueRow ds={ds} />
@@ -362,37 +363,94 @@ export function ContinueRow({ ds }: { ds: Dataset }) {
   );
 }
 
-function SearchResults({ ds, hits, side }: { ds: Dataset; hits: SearchHit[]; side: Side }) {
-  if (!hits.length) return <p className="text-sm text-muted py-6">No opening matches that. Try a name (Najdorf), an ECO code (B90) or moves (e4 c5 Nf3).</p>;
+const SEARCH_LINES_SHOWN = 8;
+
+/** One opening per group: the hub header, then its matching variations. */
+function SearchResults({ ds, groups, side }: { ds: Dataset; groups: SearchGroup[]; side: Side }) {
+  if (!groups.length) return <p className="text-sm text-muted py-6">No opening matches that. Try a name (Najdorf), an ECO code (B90) or moves (e4 c5 Nf3).</p>;
   return (
-    <ul className="divide-y divide-edge rounded-xl border border-edge bg-surface" data-testid="search-results">
-      {hits.map((h) => {
-        const t = rowTarget(ds, h.row, side);
-        const hub = h.hub;
-        return (
-          <li key={h.row} className="flex items-center gap-3 px-4 py-2.5" data-testid="search-hit">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm truncate">
-                {hub ? (
-                  <Link href={`${hubHref(hub.slug)}?side=${side}`} className="hover:text-accent font-medium">
-                    {h.name}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{h.name}</span>
-                )}
-                {h.eco && <span className="ml-2 font-mono text-xs text-muted">{h.eco}</span>}
-              </div>
-              <div className="text-xs text-muted font-mono truncate">{formatMoves(h.sans, 0, 12)}</div>
-            </div>
-            {t && (
-              <Link href={trainHref(t)} className="text-xs px-3 min-h-[36px] inline-flex items-center gap-1 rounded-md border border-edge hover:bg-surface-2 shrink-0" aria-label={`Learn ${h.name} as ${side}`}>
-                <Play size={12} aria-hidden /> Learn as {side}
+    <div className="space-y-3" data-testid="search-results">
+      {groups.map((g) => (
+        <SearchGroupView key={g.hub?.slug ?? "unassigned"} ds={ds} group={g} side={side} />
+      ))}
+    </div>
+  );
+}
+
+function SearchGroupView({ ds, group, side }: { ds: Dataset; group: SearchGroup; side: Side }) {
+  const [open, setOpen] = useState(false);
+  const { hub, hits } = group;
+  const shown = open ? hits : hits.slice(0, SEARCH_LINES_SHOWN);
+  const hidden = hits.length - shown.length;
+  const { system } = hub ? hubCard(ds, hub, side) : { system: null };
+  const eco = hub?.eco ? (hub.eco[0] === hub.eco[1] ? hub.eco[0] : `${hub.eco[0]}–${hub.eco[1]}`) : null;
+  return (
+    <section className="rounded-xl border border-edge bg-surface" data-testid="search-group" data-hub={hub?.slug ?? ""}>
+      {hub ? (
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge">
+          <div className="w-14 shrink-0">
+            <MiniBoard fen={ds.nodes[hub.sigmaNode].epd} orientation={side} approach={hub.sigma} decorative />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <Link href={`${hubHref(hub.slug)}?side=${side}`} className="font-medium hover:text-accent" data-testid="search-group-title">
+                {hub.title}
               </Link>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              {eco && <span className="font-mono text-xs text-muted">{eco}</span>}
+            </div>
+            <div className="text-xs text-muted font-mono truncate">{formatMoves(hub.sigma)}</div>
+            <div className="text-[11px] text-muted mt-0.5">
+              {hits.length} matching variation{hits.length === 1 ? "" : "s"} · {hub.games.toLocaleString()} games
+            </div>
+          </div>
+          {system ? (
+            <Link
+              href={`/train/${hub.slug}/${system.slug}/${side}?mode=learn`}
+              className="text-xs px-3 min-h-[36px] inline-flex items-center gap-1 rounded-md bg-accent text-accent-fg font-medium shrink-0"
+              aria-label={`Learn ${hub.title} as ${side}`}
+            >
+              <Play size={12} aria-hidden /> Learn as {side}
+            </Link>
+          ) : (
+            <span className="text-[11px] text-muted shrink-0">No course for {side} yet</span>
+          )}
+        </div>
+      ) : (
+        <div className="px-4 py-2 border-b border-edge text-xs text-muted uppercase tracking-wide">Other lines</div>
+      )}
+      {shown.length > 0 && (
+        <ul className="divide-y divide-edge">
+          {shown.map((h) => {
+            const t = rowTarget(ds, h.row, side);
+            // "Caro-Kann Defense: Advance Variation" → "Advance Variation"; a line that only
+            // carries the hub's name is told apart by its moves past the signature
+            const stripped = hub && h.name.startsWith(hub.title) ? h.name.slice(hub.title.length).replace(/^[:,]\s*/, "") : h.name;
+            const label = stripped || (hub && h.sans.length > hub.sigma.length ? `${formatMoves(h.sans.slice(hub.sigma.length), hub.sigma.length)} line` : h.name);
+            return (
+              <li key={h.row} className={`flex items-center gap-3 py-2 pr-4 ${hub ? "pl-8" : "pl-4"}`} data-testid="search-hit">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm truncate">
+                    <span className="font-medium">{label || h.name}</span>
+                    {h.eco && <span className="ml-2 font-mono text-xs text-muted">{h.eco}</span>}
+                  </div>
+                  <div className="text-xs text-muted font-mono truncate">{formatMoves(h.sans, 0, 12)}</div>
+                </div>
+                {t && (
+                  <Link href={trainHref(t)} className="text-xs px-3 min-h-[36px] inline-flex items-center gap-1 rounded-md border border-edge hover:bg-surface-2 shrink-0" aria-label={`Learn ${h.name} as ${side}`}>
+                    <Play size={12} aria-hidden /> Learn as {side}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {hidden > 0 && (
+        <button onClick={() => setOpen(true)} className="w-full text-left text-xs text-accent px-8 min-h-[36px] hover:bg-surface-2 rounded-b-xl" data-testid="search-group-more">
+          {hidden} more variation{hidden === 1 ? "" : "s"}
+        </button>
+      )}
+    </section>
   );
 }
 
