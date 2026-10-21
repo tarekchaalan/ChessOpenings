@@ -40,15 +40,22 @@ test("legacy URLs redirect via the legacy map", async ({ page }) => {
 test("catalog search finds najdorf, B90, e4 c5 Nf3 d6 d4 and grunfeld", async ({ page }) => {
   await page.goto("/openings");
   const search = page.getByTestId("catalog-search");
+  // results are grouped by opening: a hub header, then its matching variations
+  const group = page.getByTestId("search-group-title").first();
   const first = page.getByTestId("search-hit").first();
   await search.fill("najdorf");
+  await expect(group).toContainText("Sicilian Defense");
   await expect(first).toContainText("Najdorf");
   await search.fill("B90");
   await expect(first).toContainText("B90");
   await search.fill("e4 c5 Nf3 d6 d4");
   await expect(first).toContainText("1.e4 c5 2.Nf3 d6 3.d4");
   await search.fill("grunfeld");
-  await expect(first).toContainText("Grünfeld");
+  await expect(group).toContainText("Grünfeld");
+  // one group per opening, however many of its lines match
+  await search.fill("caro-kann");
+  await expect(group).toContainText("Caro-Kann Defense");
+  await expect(page.locator('[data-testid="search-group"][data-hub="caro-kann-defense"]')).toHaveCount(1);
   // the query is in the URL, so results are shareable
   await expect(page).toHaveURL(/q=grunfeld/);
 });

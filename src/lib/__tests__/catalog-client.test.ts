@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseDatasetV2 } from "../openings";
 import { modelOf } from "../courses-client";
-import { fold, parseMoveQuery, positionTarget, rowTarget, searchCatalog } from "../catalog-client";
+import { fold, groupSearchHits, parseMoveQuery, positionTarget, rowTarget, searchCatalog } from "../catalog-client";
 import type { RawDatasetV2 } from "../openings-build/dataset";
 
 const raw = JSON.parse(readFileSync(join(__dirname, "../../../public/data/openings.v2.json"), "utf8")) as RawDatasetV2;
@@ -35,6 +35,26 @@ describe("search (§3.2 A)", () => {
   it("a single move like e4 searches moves first (it is also an ECO prefix)", () => {
     const hits = searchCatalog(ds, "e4");
     expect(hits[0].sans[0]).toBe("e4");
+  });
+  it("results group by opening: Caro-Kann is one group with its variations under it", () => {
+    const hits = searchCatalog(ds, "Caro-Kann", 60);
+    expect(hits.length).toBeGreaterThan(10);
+    const groups = groupSearchHits(ds, hits);
+    expect(groups[0].hub?.slug).toBe("caro-kann-defense");
+    // every Caro-Kann row lands in that one group, so the hub is never repeated
+    expect(groups.filter((g) => g.hub?.slug === "caro-kann-defense")).toHaveLength(1);
+    const ck = groups[0];
+    // the signature line "Caro-Kann Defense 1.e4 c6" is the header, not a row
+    expect(ck.hits.some((h) => h.name === "Caro-Kann Defense" && h.sans.join(" ") === "e4 c6")).toBe(false);
+    expect(ck.hits.some((h) => /Advance Variation/.test(h.name))).toBe(true);
+    // hit order is preserved inside the group
+    const order = ck.hits.map((h) => hits.findIndex((x) => x.row === h.row));
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+  it("grouping keeps the best hit's opening first (najdorf → Sicilian)", () => {
+    const groups = groupSearchHits(ds, searchCatalog(ds, "najdorf"));
+    expect(groups[0].hub?.slug).toBe("sicilian-defense");
+    expect(groups[0].hits[0].name).toMatch(/Najdorf/);
   });
   it("grunfeld is accent-insensitive; one typo is forgiven", () => {
     expect(fold("Grünfeld")).toBe("grunfeld");
