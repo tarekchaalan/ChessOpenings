@@ -1,0 +1,1 @@
+- Add "What If" feature: User can contiue on their own, either during or at the end of a line, and the engine will just provide the top 3 arrows for the moves that come after it. So incase a line doesnt cover a specific scenario, a user can play it out on their own.
