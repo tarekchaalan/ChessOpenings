@@ -15,7 +15,9 @@ key sidelines. **Quiz** yourself: the app plays the opponent from
 frequency-weighted theory and you must produce a book move, scored by accuracy
 and speed. A spaced-repetition scheduler (SM-2) resurfaces exactly the
 positions you miss, and the dashboard tracks mastery, streaks, and your review
-queue per opening.
+queue per opening. **What if?** lets you play on from any position in the
+trainer, for both sides, with Stockfish's top three moves as numbered arrows
+after every move, so a scenario the line doesn't cover can be played out.
 
 ## Stack
 

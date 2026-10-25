@@ -7,19 +7,23 @@
  * the running one. When the worker can't start, `engineAvailable()` turns false
  * and callers hide the eval bar / keep the engine-free mistake text.
  */
-import { parseBestmove, parseInfo, type Info } from "./uci";
+import { parseBestmove, parseInfo, rememberInfo, type Info } from "./uci";
+
+export { rememberInfo };
 
 const URL_JS = "/engine/stockfish-19-lite-single.js";
 
 export interface Analysis extends Info {
   bestmove: string | null;
+  /** Best line per MultiPV rank, ordered from best to worst. */
+  lines: Info[];
 }
 
 let worker: Worker | null = null;
 let failed = false;
 let ready: Promise<void> | null = null;
 /** the running search; superseded searches resolve with what they had */
-let current: { resolve: (a: Analysis | null) => void; last: Info | null; stopped: boolean } | null = null;
+let current: { resolve: (a: Analysis | null) => void; lines: Map<number, Info>; stopped: boolean } | null = null;
 let chain: Promise<unknown> = Promise.resolve();
 
 export function engineAvailable(): boolean {
@@ -56,15 +60,22 @@ function start(): Promise<void> {
       }
       const info = parseInfo(line);
       if (info && current) {
-        // keep the deepest main-line info (multipv 1 is the only one we ask for)
-        if (!current.last || info.depth >= current.last.depth) current.last = info;
+        rememberInfo(current.lines, info);
         return;
       }
       const best = parseBestmove(line);
       if (best !== undefined && current) {
         const c = current;
         current = null;
-        c.resolve(c.last ? { ...c.last, bestmove: best } : best === null ? null : { depth: 0, score: { cp: 0 }, pv: [best], bestmove: best });
+        const lines = [...c.lines.values()].sort((a, b) => a.multipv - b.multipv);
+        const main = lines[0];
+        c.resolve(
+          main
+            ? { ...main, bestmove: best, lines }
+            : best === null
+              ? null
+              : { depth: 0, score: { cp: 0 }, pv: [best], multipv: 1, bestmove: best, lines: [] }
+        );
       }
     };
     worker.postMessage("uci");
@@ -78,7 +89,7 @@ function start(): Promise<void> {
  * Analyse a position (FEN). Scores are from the side to move's point of view.
  * Resolves null when the engine is unavailable or the position has no moves.
  */
-export function analyse(fen: string, opts: { movetimeMs?: number; depth?: number } = {}): Promise<Analysis | null> {
+export function analyse(fen: string, opts: { movetimeMs?: number; depth?: number; multipv?: number } = {}): Promise<Analysis | null> {
   if (!engineAvailable()) return Promise.resolve(null);
   // a newer request stops the running search (its caller gets what it had)
   if (current && !current.stopped) {
@@ -92,7 +103,9 @@ export function analyse(fen: string, opts: { movetimeMs?: number; depth?: number
       return null;
     }
     return new Promise<Analysis | null>((resolve) => {
-      current = { resolve, last: null, stopped: false };
+      const multipv = Math.max(1, Math.floor(opts.multipv ?? 1));
+      current = { resolve, lines: new Map(), stopped: false };
+      worker!.postMessage(`setoption name MultiPV value ${multipv}`);
       worker!.postMessage(`position fen ${fen}`);
       worker!.postMessage(opts.depth ? `go depth ${opts.depth}` : `go movetime ${opts.movetimeMs ?? 700}`);
     });

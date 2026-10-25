@@ -13,6 +13,8 @@ export interface Info {
   score: Score;
   /** principal variation, UCI moves */
   pv: string[];
+  /** MultiPV rank; Stockfish defaults to the principal line. */
+  multipv: number;
 }
 
 /** Parse one `info … score … pv …` line; null for other lines (currmove, string…). */
@@ -26,7 +28,16 @@ export function parseInfo(line: string): Info | null {
   const val = Number(t[si + 2]);
   if (!Number.isFinite(val) || (kind !== "cp" && kind !== "mate")) return null;
   const pv = t.slice(t.indexOf("pv") + 1);
-  return { depth, score: kind === "cp" ? { cp: val } : { mate: val }, pv };
+  const multipvIndex = t.indexOf("multipv");
+  const multipv = multipvIndex < 0 ? 1 : Number(t[multipvIndex + 1]);
+  if (!Number.isInteger(multipv) || multipv < 1) return null;
+  return { depth, score: kind === "cp" ? { cp: val } : { mate: val }, pv, multipv };
+}
+
+/** Keep the deepest info for each MultiPV rank. */
+export function rememberInfo(lines: Map<number, Info>, info: Info): void {
+  const previous = lines.get(info.multipv);
+  if (!previous || info.depth >= previous.depth) lines.set(info.multipv, info);
 }
 
 /** `bestmove e2e4 ponder e7e5` → "e2e4" ("(none)" when mated/stalemated → null). */

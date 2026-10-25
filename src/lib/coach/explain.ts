@@ -95,6 +95,7 @@ export interface ExplainCtx {
   names: string[];
   stats: MoveStatsCtx | null;
   previous: Move | null;
+  fallback?: string;
 }
 
 export function noteFor(a: Annotations, epd: string, san: string): MoveNote | undefined {
@@ -115,7 +116,7 @@ export function whyText(fenBefore: string, san: string, ctx: ExplainCtx): { text
   const parts = f ? factSentences(f, seed, { gambit }) : [];
   const stat = statsSentence(ctx.stats, seed);
   const chosen = [...parts.slice(0, 2), ...(stat ? [stat] : [])];
-  return { text: clip(chosen.join(" ") || "A book move in this line."), authored: false };
+  return { text: clip(chosen.join(" ") || (ctx.fallback ?? "A book move in this line.")), authored: false };
 }
 
 /** H1 idea: authored [%hint], else a fact-based idea that never names the destination. */

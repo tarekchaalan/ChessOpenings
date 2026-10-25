@@ -25,6 +25,7 @@ export const BRUSHES: DrawBrushes = {
   alt: { key: "cal", color: "#1f5fbf", opacity: 0.6, lineWidth: 7 },
   authored: { key: "cau", color: "#d99a00", opacity: 0.75, lineWidth: 8 },
   ext: { key: "cex", color: "#157a1c", opacity: 0.7, lineWidth: 8 },
+  engine: { key: "cen", color: "#7251b5", opacity: 0.85, lineWidth: 8 },
   hint: { key: "chi", color: "#15781B", opacity: 0.35, lineWidth: 0 },
 };
 
@@ -37,6 +38,7 @@ const KIND_BRUSH = {
   alt: "alt",
   authored: "authored",
   ext: "ext",
+  engine: "engine",
   green: "green",
   red: "red",
   blue: "blue",

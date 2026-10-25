@@ -1,13 +1,25 @@
 /** UCI parsing, score handling and mistake classification for the on-demand engine. */
 import { describe, expect, it } from "vitest";
-import { barLabel, classify, formatScore, negate, parseBestmove, parseInfo, pvToMoves, toCp, whiteShare } from "../uci";
+import { barLabel, classify, formatScore, negate, parseBestmove, parseInfo, pvToMoves, toCp, whiteShare, type Info } from "../uci";
+import { rememberInfo } from "../engine";
 
 describe("UCI output", () => {
   it("parses info lines with cp and mate scores, and ignores the rest", () => {
-    expect(parseInfo("info depth 12 seldepth 18 multipv 1 score cp 34 nodes 1000 nps 1 time 5 pv e2e4 e7e5 g1f3")).toEqual({ depth: 12, score: { cp: 34 }, pv: ["e2e4", "e7e5", "g1f3"] });
-    expect(parseInfo("info depth 9 score mate -3 pv h7h6 d1h5")).toEqual({ depth: 9, score: { mate: -3 }, pv: ["h7h6", "d1h5"] });
+    expect(parseInfo("info depth 12 seldepth 18 multipv 1 score cp 34 nodes 1000 nps 1 time 5 pv e2e4 e7e5 g1f3")).toEqual({ depth: 12, score: { cp: 34 }, pv: ["e2e4", "e7e5", "g1f3"], multipv: 1 });
+    expect(parseInfo("info depth 9 score mate -3 pv h7h6 d1h5")).toEqual({ depth: 9, score: { mate: -3 }, pv: ["h7h6", "d1h5"], multipv: 1 });
     expect(parseInfo("info depth 9 currmove e2e4 currmovenumber 1")).toBeNull();
     expect(parseInfo("info string NNUE evaluation using nn.nnue")).toBeNull();
+  });
+  it("MultiPV: each line keeps its rank, and the deepest info per rank wins", () => {
+    expect(parseInfo("info depth 10 multipv 3 score cp -12 pv b1c3 e7e5")).toMatchObject({ multipv: 3, score: { cp: -12 } });
+    const lines = new Map<number, Info>();
+    const at = (depth: number, multipv: number, cp: number) => ({ depth, multipv, score: { cp }, pv: [`m${multipv}`] });
+    rememberInfo(lines, at(8, 1, 30));
+    rememberInfo(lines, at(8, 2, 20));
+    rememberInfo(lines, at(9, 1, 35));
+    rememberInfo(lines, at(7, 2, 99)); // shallower: ignored
+    expect(lines.get(1)).toMatchObject({ depth: 9, score: { cp: 35 } });
+    expect(lines.get(2)).toMatchObject({ depth: 8, score: { cp: 20 } });
   });
   it("parses bestmove, including (none)", () => {
     expect(parseBestmove("bestmove e2e4 ponder e7e5")).toBe("e2e4");

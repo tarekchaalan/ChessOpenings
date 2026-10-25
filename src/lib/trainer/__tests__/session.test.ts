@@ -127,7 +127,7 @@ describe("Learn", () => {
     const m = s.feed.at(-1)!;
     expect(m.kind).toBe("mistake");
     expect(m.title).toMatch(/Exchange Variation \(4\.Bxc6\), also theory/);
-    expect(m.actions).toEqual(["try", "make-mine", "explore"]);
+    expect(m.actions).toEqual(["try", "make-mine", "explore", "whatif"]);
     expect(s.attempts).toBe(0); // soft-fails are not lapses
     expect(s.wrong?.soft).toBe(true);
     s.tryAgain();
@@ -255,7 +255,7 @@ describe("mistakes", () => {
     const m = s.feed.at(-2)!;
     expect(m.kind).toBe("mistake");
     expect(m.text).toBe("Not in this course's book.");
-    expect(m.actions).toEqual(["try", "show"]);
+    expect(m.actions).toEqual(["try", "show", "whatif"]);
     const re = s.feed.at(-1)!;
     expect(re.title).toBe("Re-teach");
     expect(re.text).toMatch(/^Remember: /);
@@ -343,5 +343,146 @@ describe("Drill", () => {
     const { s, tick } = session(ruy, line.idx, "drill", { startPly: start });
     playThrough(s, tick);
     expect(s.drainEvents()).toEqual([]);
+  });
+});
+
+describe("What if", () => {
+  const BA4 = lineWith(ruy, "e4 e5 Nf3 Nc6 Bb5 a6 Ba4").idx;
+  /** The 4.Ba4 line at the learner's 4th move (after 3…a6). */
+  const atMove4 = (mode: Mode) => {
+    const r = session(ruy, BA4, mode, { startPly: 6 });
+    r.s.skipFF();
+    return r.s;
+  };
+
+  it("plays on for both sides from the live position; the board's timeline extends the line; exit restores it", () => {
+    const s = atMove4("learn");
+    expect(s.phase).toBe("await");
+    expect(s.playFree("Bxc6")).toBe("ignored");
+    expect(s.canWhatIf()).toBe(true);
+    expect(s.startWhatIf()).toBe(true);
+    expect(s.phase).toBe("free");
+    expect(s.feed.at(-1)).toMatchObject({ kind: "whatif", title: "What if?", free: true, ply: 6 });
+    expect(s.arrows).toEqual([]);
+    expect(s.playFree("Bxc6")).toBe("ok");
+    expect(s.playFree("Ra5")).toBe("illegal"); // the a6 pawn blocks the rook
+    expect(s.playFree("dxc6")).toBe("ok");
+    expect(s.boardPly).toBe(8);
+    expect(s.ply).toBe(6); // the line itself didn't move
+    expect([5, 6, 7].map((p) => s.boardSan(p))).toEqual(["a6", "Bxc6", "dxc6"]);
+    expect(s.boardMove(6)).toMatchObject({ from: "b5", to: "c6" });
+    expect(s.boardFen(6)).toBe(s.fens[6]);
+    expect(s.boardFen(8)).toBe(s.freeFen());
+    expect(new Chess(s.freeFen()).turn()).toBe("w");
+    const msgs = s.feed.filter((m) => m.kind === "whatif");
+    expect(msgs.at(-2)).toMatchObject({ who: "you", title: "4.Bxc6", ply: 7, free: true });
+    expect(msgs.at(-1)).toMatchObject({ who: "black", title: "4…dxc6", ply: 8, free: true });
+    // 4.Bxc6 is a master move into named theory: the message says so
+    expect(msgs.at(-2)!.text).toMatch(/of master games from here/);
+    expect(msgs.at(-2)!.text).toMatch(/Exchange Variation/);
+    expect(s.nameAtBoard(7).row?.name).toMatch(/Exchange Variation/);
+    expect(s.nameAtBoard(8).row?.name).toMatch(/Exchange Variation/); // 4…dxc6 itself is unnamed: the deepest name reached stays
+    expect(s.nameAtBoard(6).row?.name).toMatch(/Morphy Defense/);
+    expect(s.undoFree()).toBe(true);
+    expect(s.boardPly).toBe(7);
+    expect(s.drainEvents()).toEqual([]); // nothing grades or introduces
+    s.exitWhatIf();
+    expect(s.phase).toBe("await");
+    expect(s.free).toBeNull();
+    expect(s.boardPly).toBe(6);
+    expect(s.boardSan(5)).toBe("a6");
+    expect(s.arrows.some((a) => a.kind === "play")).toBe(true); // Learn's play arrow is back
+    expect(s.feed.at(-1)).toMatchObject({ kind: "whatif", title: "Back to the line" });
+    expect(s.play("Ba4")).toBe("correct");
+  });
+
+  it("from a wrong move: plays it out, and exit brings the wrong move back exactly", () => {
+    const s = atMove4("learn");
+    expect(s.play("Bxc6")).toBe("soft");
+    const m = s.feed.at(-1)!;
+    expect(m.actions).toContain("whatif");
+    expect(s.startWhatIf(m.ply, m.wrong!.san)).toBe(true);
+    expect(s.boardPly).toBe(7);
+    expect(s.boardSan(6)).toBe("Bxc6");
+    expect(s.wrong).toBeNull();
+    expect(s.tints).toEqual({});
+    s.exitWhatIf();
+    expect(s.phase).toBe("wrong");
+    expect(s.wrong?.san).toBe("Bxc6");
+    expect(s.tints).toEqual({ b5: "wrong", c6: "wrong" });
+    s.tryAgain();
+    expect(s.play("Ba4")).toBe("correct");
+  });
+
+  it("never from a graded position still waiting for its answer; fine after its lapse, from earlier plies, and at the end", () => {
+    const s = atMove4("review");
+    expect(s.canWhatIf()).toBe(false);
+    expect(s.startWhatIf()).toBe(false);
+    expect(s.phase).toBe("await");
+    expect(s.canWhatIf(4)).toBe(true);
+    expect(s.canWhatIf(7)).toBe(false); // not a position on the board yet
+    expect(s.play(junk(s))).toBe("wrong");
+    expect(s.canWhatIf()).toBe(true); // the lapse is recorded
+    s.tryAgain();
+    expect(s.canWhatIf()).toBe(true);
+
+    const { s: done, tick } = session(ruy, BA4, "recall");
+    playThrough(done, tick);
+    expect(done.phase).toBe("end");
+    expect(done.canWhatIf()).toBe(true);
+    expect(done.startWhatIf()).toBe(true);
+    expect(done.boardPly).toBe(done.ply);
+    done.exitWhatIf();
+    expect(done.phase).toBe("end");
+
+    const { s: replay } = session(ruy, BA4, "learn", { startPly: 6 });
+    expect(replay.phase).toBe("ff");
+    expect(replay.canWhatIf()).toBe(false);
+  });
+
+  it("from an earlier position (the board scrubbed back): the timeline forks there and names what it reaches", () => {
+    const s = atMove4("learn");
+    expect(s.startWhatIf(4)).toBe(true); // after 2…Nc6: White's 3rd move again
+    expect(s.boardPly).toBe(4);
+    expect(s.playFree("Bc4")).toBe("ok");
+    expect([3, 4].map((p) => s.boardSan(p))).toEqual(["Nc6", "Bc4"]);
+    expect(s.nodeAtBoard(5)).not.toBeNull();
+    expect(s.nameAtBoard(5).row?.name).toMatch(/Italian/);
+    expect(s.feed.at(-1)!.text).toMatch(/Italian/);
+    expect(s.linePlyOf(5)).toBe(4);
+    s.exitWhatIf();
+    expect(s.boardPly).toBe(6);
+    expect(s.boardSan(4)).toBe("Bb5");
+    expect(s.nameAtBoard(6).row?.name).toMatch(/Ruy Lopez/);
+  });
+
+  it("engine suggestions: numbered arrows and a message for the position on the board; stale results are dropped", () => {
+    const s = atMove4("learn");
+    s.startWhatIf();
+    s.playFree("Bxc6");
+    const seq = s.free!.seq;
+    const moves = [
+      { san: "dxc6", from: "d7", to: "c6", score: "+0.3" },
+      { san: "bxc6", from: "b7", to: "c6", score: "+0.5" },
+      { san: "Nf6", from: "g8", to: "f6", score: "+1.0" },
+      { san: "Qh4", from: "d8", to: "h4", score: "+9.0" },
+    ];
+    expect(s.engineSuggest(seq - 1, moves, 12)).toBe(false);
+    expect(s.engineSuggest(seq, moves, 12)).toBe(true);
+    expect(s.arrows).toEqual([
+      { from: "d7", to: "c6", kind: "engine", label: "1" },
+      { from: "b7", to: "c6", kind: "engine", label: "2" },
+      { from: "g8", to: "f6", kind: "engine", label: "3" },
+    ]);
+    const m = s.feed.at(-1)!;
+    expect(m).toMatchObject({ kind: "engine", who: "black", ply: 7, free: true });
+    expect(m.engine).toMatchObject({ seq, depth: 12 });
+    expect(m.engine!.moves).toHaveLength(3);
+    expect(m.text).toBe("1. 4…dxc6 +0.3 · 2. 4…bxc6 +0.5 · 3. 4…Nf6 +1.0 · depth 12");
+    s.playFree("dxc6");
+    expect(s.arrows).toEqual([]);
+    expect(s.engineSuggest(seq, moves, 12)).toBe(false);
+    s.exitWhatIf();
+    expect(s.engineSuggest(s.free?.seq ?? seq, moves, 12)).toBe(false);
   });
 });

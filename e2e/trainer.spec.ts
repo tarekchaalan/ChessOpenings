@@ -285,3 +285,81 @@ test.describe("mobile", () => {
     await expect.poll(async () => (await page.getByTestId("coach-panel").boundingBox())!.height / 812).toBeGreaterThan(0.7);
   });
 });
+
+test("What if: play on for both sides from any position, the engine's top moves as numbered arrows, take back, back to the line", async ({ page }) => {
+  await page.goto(`${RUY}?mode=learn&line=ln_c4e43ggaphii`);
+  await learnUntil(page, 6); // after 3…a6, White to play 4.Ba4
+  await phaseIs(page, "await", 6);
+  const trainer = page.getByTestId("trainer");
+
+  // W starts a What If at the live position: both sides move, nothing grades
+  await page.keyboard.press("w");
+  await expect(trainer).toHaveAttribute("data-phase", "free");
+  await expect(page.locator('[data-kind="whatif"]').last()).toContainText("What if?");
+  await page.getByTestId("san-input").fill("Bxc6");
+  await page.getByTestId("san-input").press("Enter");
+  await drag(page, "d7", "c6"); // Black's reply, dragged as Black
+  await expect(page.getByTestId("whatif-chip")).toHaveText(["4.Bxc6", "dxc6"]);
+  await expect(page.getByTestId("move-chip")).toHaveCount(6);
+  await expect(page.locator('[data-kind="whatif"]').nth(1)).toContainText("Exchange Variation");
+  await expect(page.getByTestId("name-crumb")).toContainText("Exchange Variation");
+  // the engine's top moves: an engine message with clickable moves, numbered violet arrows on the board
+  const engine = page.locator('[data-kind="engine"]');
+  await expect(engine.last()).toContainText("Engine: top moves for White", { timeout: 60_000 });
+  await expect(engine.last().getByTestId("engine-move")).toHaveCount(3);
+  await expect(page.locator(".cg-wrap svg line[stroke='#6b3fc4']")).toHaveCount(3);
+  // Learn introduced cards for 1.e4, 2.Nf3 and 3.Bb5; the what-if moves added none
+  const cards = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("cot.v2.cards") ?? "{}")));
+  expect(cards).toHaveLength(3);
+  expect(cards.some((k) => /Bxc6|dxc6/.test(k))).toBe(false);
+  // clicking an engine move plays it
+  const first = await engine.last().getByTestId("engine-move").first().locator(".font-mono").innerText();
+  await engine.last().getByTestId("engine-move").first().click();
+  await expect(page.getByTestId("whatif-chip").last()).toHaveText(`5.${first}`);
+  // take back, then back to the line: the position and the prompt are exactly as before
+  await page.getByTestId("whatif-undo").click();
+  await expect(page.getByTestId("whatif-chip")).toHaveCount(2);
+  await page.getByTestId("whatif-exit").click();
+  await phaseIs(page, "await", 6);
+  await expect(page.getByTestId("whatif-chip")).toHaveCount(0);
+  await expect(page.locator('[data-kind="whatif"]').last()).toContainText("Back to the line");
+  await expect(page.locator('.cg-wrap svg line[stroke="#15781B"]').first()).toBeAttached(); // Learn's play arrow is back
+
+  // a wrong move offers "Play it out"; leaving the What If brings the wrong move back
+  await drag(page, "e1", "f1"); // 4.Kf1
+  await phaseIs(page, "wrong");
+  await page.getByTestId("action-whatif").click();
+  await expect(trainer).toHaveAttribute("data-phase", "free");
+  await expect(page.getByTestId("whatif-chip")).toHaveText(["4.Kf1"]);
+  await expect(page.getByTestId("wrong-chip")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(trainer).toHaveAttribute("data-phase", "wrong");
+  await expect(page.getByTestId("wrong-chip")).toHaveText("Kf1");
+  await page.getByTestId("action-try").click();
+  await phaseIs(page, "await", 6);
+
+  // the end card offers it too
+  await learnUntil(page);
+  await phaseIs(page, "end");
+  await page.getByTestId("end-whatif").click();
+  await expect(trainer).toHaveAttribute("data-phase", "free");
+  await expect(page.getByTestId("whatif-btn")).toHaveAttribute("aria-pressed", "true");
+});
+
+test("What if is never offered at a graded position still waiting for its answer", async ({ page }) => {
+  await page.goto(`${RUY}?mode=recall&line=ln_c4e43ggaphii`);
+  await phaseIs(page, "await", 0);
+  await expect(page.getByTestId("whatif-btn")).toBeDisabled();
+  await page.keyboard.press("w");
+  await expect(page.getByTestId("trainer")).toHaveAttribute("data-phase", "await");
+  // scrubbed back to a position already answered, it is
+  await page.getByTestId("san-input").fill("e4");
+  await page.getByTestId("san-input").press("Enter");
+  await phaseIs(page, "await", 2);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByTestId("whatif-btn")).toBeEnabled();
+  await page.keyboard.press("w");
+  await expect(page.getByTestId("trainer")).toHaveAttribute("data-phase", "free");
+  await expect(page.getByTestId("trainer")).toHaveAttribute("data-ply", "1");
+  await expect(page.getByTestId("back-to-live")).toHaveCount(0);
+});

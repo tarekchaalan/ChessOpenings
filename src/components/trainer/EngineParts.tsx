@@ -11,8 +11,14 @@ import { analyse, engineAvailable, type Analysis } from "@/lib/engine/engine";
 import { barLabel, classify, formatScore, negate, pvToMoves, whiteShare, type Score } from "@/lib/engine/uci";
 import { usePrefs } from "@/lib/prefs";
 import { useHydrated } from "@/lib/hooks";
-import { moveLabel, type TrainerSession } from "@/lib/trainer/session";
+import { moveLabel, type EngineMove, type TrainerSession } from "@/lib/trainer/session";
 import type { CourseLine } from "@/lib/openings-build/courses";
+
+/** An analysis of one position, for the eval bar (`fen` is the position it describes). */
+export interface Analysed {
+  fen: string;
+  a: Analysis | null;
+}
 
 /** chess.js and UCI want six FEN fields; the session's fens may be EPDs. */
 export const fullFen = (f: string) => (f.trim().split(/\s+/).length >= 6 ? f : `${f.trim()} 0 1`);
@@ -72,36 +78,85 @@ export function useEngineVerdict(s: TrainerSession, line: CourseLine, side: "whi
 }
 
 /**
+ * What If: after every what-if move, a MultiPV search of the position on the
+ * board; its top three moves become numbered arrows and an engine message with
+ * clickable moves. A result for a position the board has left is dropped.
+ * Returns the latest analysis so the eval bar can show it instead of running
+ * its own (competing) search.
+ */
+export function useWhatIfEngine(s: TrainerSession, ver: number, after: () => void): Analysed | null {
+  const [res, setRes] = useState<Analysed | null>(null);
+  const done = useRef<number | null>(null);
+  useEffect(() => {
+    const free = s.free;
+    if (s.phase !== "free" || !free || !engineAvailable()) {
+      done.current = null;
+      return;
+    }
+    if (done.current === free.seq) return;
+    done.current = free.seq;
+    const seq = free.seq;
+    const fen = fullFen(s.freeFen());
+    const turn = new Chess(fen).turn();
+    let alive = true;
+    analyse(fen, { movetimeMs: 1000, multipv: 3 })
+      .then((a) => {
+        if (!alive) return;
+        setRes({ fen, a });
+        if (!a) return;
+        const moves: EngineMove[] = [];
+        for (const l of a.lines) {
+          const m = pvToMoves(fen, l.pv, 1)[0];
+          if (m && !moves.some((x) => x.san === m.san)) moves.push({ san: m.san, from: m.from, to: m.to, score: formatScore(turn === "w" ? l.score : negate(l.score)) });
+        }
+        if (s.engineSuggest(seq, moves, a.depth)) after();
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // `ver` is the session's version (it mutates in place)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ver]);
+  return s.phase === "free" ? res : null;
+}
+
+/**
  * Vertical eval bar beside the board (on by default, toggled with E or the
  * toolbar). White's share fills from White's edge, so it follows the board's
- * orientation. Hidden without the engine.
+ * orientation. Hidden without the engine. With `external` given (What If's own
+ * search of the position on the board; null while it runs) the bar shows that
+ * instead of starting a competing search.
  */
-export function EvalBar({ fen, orientation }: { fen: string; orientation: "white" | "black" }) {
+export function EvalBar({ fen, orientation, external }: { fen: string; orientation: "white" | "black"; external?: Analysed | null }) {
   const prefs = usePrefs();
   const hydrated = useHydrated();
-  const [res, setRes] = useState<{ fen: string; a: Analysis | null } | null>(null);
+  const [own, setOwn] = useState<Analysed | null>(null);
   const [broken, setBroken] = useState(false);
   const on = prefs.showEval;
+  const delegated = external !== undefined;
   useEffect(() => {
-    if (!on) return;
+    if (!on || delegated) return;
     let alive = true;
     const t = setTimeout(() => {
       analyse(fullFen(fen), { movetimeMs: 900 }).then((a) => {
         if (!alive) return;
         if (!a && !engineAvailable()) setBroken(true);
-        setRes({ fen, a });
+        setOwn({ fen, a });
       });
     }, 150);
     return () => {
       alive = false;
       clearTimeout(t);
     };
-  }, [fen, on]);
+  }, [fen, on, delegated]);
   if (!hydrated || !on || !engineAvailable() || broken) return null;
 
-  // keep the last result on screen while the next position is analysed (no flicker back to 50%)
+  // the last result stays on screen while the next position is analysed (no flicker back to 50%):
+  // What If's result when it has one, else the bar's own last search (the line's position)
+  const res = (delegated ? external : null) ?? own;
   const a = res?.a ?? null;
-  const fresh = res?.fen === fen;
+  const fresh = res?.fen === fen || res?.fen === fullFen(fen);
   const turn = res ? new Chess(fullFen(res.fen)).turn() : "w";
   const whiteScore = a ? (turn === "w" ? a.score : negate(a.score)) : null;
   const share = whiteScore ? whiteShare(whiteScore) : 0.5;
