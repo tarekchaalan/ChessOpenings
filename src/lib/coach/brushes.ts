@@ -25,7 +25,7 @@ export const BRUSHES: DrawBrushes = {
   alt: { key: "cal", color: "#1f5fbf", opacity: 0.6, lineWidth: 7 },
   authored: { key: "cau", color: "#d99a00", opacity: 0.75, lineWidth: 8 },
   ext: { key: "cex", color: "#157a1c", opacity: 0.7, lineWidth: 8 },
-  engine: { key: "cen", color: "#7251b5", opacity: 0.85, lineWidth: 8 },
+  engine: { key: "cen", color: "#6b3fc4", opacity: 0.85, lineWidth: 8 },
   hint: { key: "chi", color: "#15781B", opacity: 0.35, lineWidth: 0 },
 };
 
@@ -50,7 +50,7 @@ export function arrowShapes(arrows: Arrow[]): DrawShape[] {
     orig: a.from as Key,
     ...(a.to ? { dest: a.to as Key } : {}),
     brush: KIND_BRUSH[a.kind],
-    ...(a.label ? { label: { text: a.label, fill: BRUSHES.plan.color } } : {}),
+    ...(a.label ? { label: { text: a.label, fill: BRUSHES[a.kind].color } } : {}),
   }));
 }
 

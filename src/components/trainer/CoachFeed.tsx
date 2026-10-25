@@ -5,12 +5,14 @@
  * replaced. The newest message carries the live actions.
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, CircleAlert, Eye, Flag, GitBranch, Lightbulb, Repeat, Sparkles, X } from "lucide-react";
-import type { ActionKind, FeedMsg } from "@/lib/trainer/session";
+import { Check, ChevronDown, CircleAlert, Eye, Flag, Gauge, GitBranch, Lightbulb, Repeat, Sparkles, X } from "lucide-react";
+import type { ActionKind, EngineMove, FeedMsg } from "@/lib/trainer/session";
 import { motionReduced } from "@/lib/motion";
 
 export interface FeedActions {
   onAction: (a: ActionKind, msg: FeedMsg) => void;
+  onEngineMove?: (san: string, seq: number) => void;
+  engineMovesLive?: boolean;
   onOption?: (line: number) => void;
   /** which actions are live (only the newest mistake / ff message) */
   liveId: number | null;
@@ -61,6 +63,7 @@ export default function CoachFeed({
     () => ({
       select: (m) => latest.current.onSelect(m),
       action: (a, m) => latest.current.actions.onAction(a, m),
+      engineMove: (san, seq) => latest.current.actions.onEngineMove?.(san, seq),
       option: (li) => latest.current.actions.onOption?.(li),
     }),
     []
@@ -75,6 +78,7 @@ export default function CoachFeed({
           m={m}
           selected={selected === m.id}
           live={actions.liveId === m.id}
+          engineMovesLive={actions.engineMovesLive ?? false}
           optionsClickable={clickable}
           doneMask={m.options ? m.options.map((o) => (o.line !== null && actions.lineDone(o.line) ? "1" : "0")).join("") : ""}
           handlers={handlers}
@@ -103,6 +107,8 @@ function Icon({ kind }: { kind: FeedMsg["kind"] }) {
       return <Repeat size={15} className={`${cls} text-muted`} aria-hidden />;
     case "complete":
       return <Sparkles size={15} className={`${cls} text-accent`} aria-hidden />;
+    case "engine":
+      return <Gauge size={15} className={`${cls} text-violet-700`} aria-hidden />;
     case "turn":
       return <CircleAlert size={15} className={`${cls} text-accent`} aria-hidden />;
     default:
@@ -113,6 +119,7 @@ function Icon({ kind }: { kind: FeedMsg["kind"] }) {
 interface Handlers {
   select: (m: FeedMsg) => void;
   action: (a: ActionKind, m: FeedMsg) => void;
+  engineMove: (san: string, seq: number) => void;
   option: (line: number) => void;
 }
 
@@ -120,6 +127,7 @@ const Message = memo(function Message({
   m,
   selected,
   live,
+  engineMovesLive,
   optionsClickable,
   doneMask,
   handlers,
@@ -127,6 +135,7 @@ const Message = memo(function Message({
   m: FeedMsg;
   selected: boolean;
   live: boolean;
+  engineMovesLive: boolean;
   optionsClickable: boolean;
   /** one char per option: learned (1) or not (0) */
   doneMask: string;
@@ -135,7 +144,9 @@ const Message = memo(function Message({
   const [more, setMore] = useState(false);
   const onSelect = useCallback(() => handlers.select(m), [handlers, m]);
   const tone =
-    m.kind === "mistake"
+    m.free
+      ? "border-accent/40 border-dashed bg-surface"
+      : m.kind === "mistake"
       ? m.wrong?.soft
         ? "border-gold/50 bg-surface"
         : "border-danger/40 bg-surface"
@@ -149,7 +160,7 @@ const Message = memo(function Message({
       data-testid="coach-msg"
       data-kind={m.kind}
       data-ply={m.ply}
-      className={`rounded-lg border px-3 py-2 text-sm transition-shadow ${tone} ${selected ? "ring-2 ring-accent" : ""}`}
+      className={`rounded-lg border px-3 py-2 text-sm transition-shadow ${tone} ${m.free ? "italic" : ""} ${selected ? "ring-2 ring-accent" : ""}`}
     >
       {/* the card scrubs on click (mouse); the small button is the keyboard/screen-reader way */}
       <div className="flex gap-2 items-start cursor-pointer" onClick={onSelect}>
@@ -159,6 +170,27 @@ const Message = memo(function Message({
             <div className="flex items-baseline gap-2">
               {m.who && <span className="text-[10px] font-semibold tracking-wider text-muted">{WHO[m.who]}</span>}
               {m.title && <span className={`font-medium ${m.kind === "turn" ? "text-accent" : ""}`} data-testid="coach-title">{m.title}</span>}
+            </div>
+          )}
+          {m.engine && (
+            <div className="pl-6 mt-2 flex flex-wrap gap-1.5">
+              {m.engine.moves.map((move: EngineMove, i) => (
+                <button
+                  key={`${m.engine!.seq}-${move.san}`}
+                  type="button"
+                  data-testid="engine-move"
+                  disabled={!engineMovesLive}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handlers.engineMove(move.san, m.engine!.seq);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/40 px-2 py-1 text-xs disabled:opacity-60"
+                >
+                  <span className="font-semibold text-violet-700">{i + 1}.</span>
+                  <span className="font-mono">{move.san}</span>
+                  <span className="text-muted">{move.score}</span>
+                </button>
+              ))}
             </div>
           )}
           {m.text && <p className="text-[13px] leading-snug text-foreground/90 mt-0.5">{m.text}</p>}
@@ -224,7 +256,11 @@ const Message = memo(function Message({
                 i === 0 ? "bg-accent text-accent-fg font-medium" : "border border-edge bg-surface hover:bg-surface-2"
               }`}
             >
-              {a === "make-mine" && m.wrong ? `Make ${m.title?.match(/\(([^)]+)\)/)?.[1] ?? m.wrong.san} my move` : ACTION_LABEL[a]}
+              {a === "make-mine" && m.wrong
+                ? `Make ${m.title?.match(/\(([^)]+)\)/)?.[1] ?? m.wrong.san} my move`
+                : a === "whatif" && m.wrong
+                  ? "Play it out"
+                  : ACTION_LABEL[a]}
             </button>
           ))}
         </div>

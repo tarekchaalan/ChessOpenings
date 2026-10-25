@@ -8,11 +8,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Keyboard, RotateCcw, Settings, ArrowUpDown, Check, Star, Gauge } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Keyboard, RotateCcw, Settings, ArrowUpDown, Check, Star, Gauge, FlaskConical, Undo2 } from "lucide-react";
 import Board from "@/components/Board";
 import WinBar from "@/components/WinBar";
 import CoachFeed from "./CoachFeed";
-import { EvalBar, useEngineVerdict } from "./EngineParts";
+import { EvalBar, useEngineVerdict, useWhatIfEngine } from "./EngineParts";
 import { getPrefs, setPref, usePrefs } from "@/lib/prefs";
 import { useReducedMotion } from "@/lib/motion";
 import { playMoveSound } from "@/lib/sound";
@@ -157,6 +157,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   }, [flush, bump]);
   // mistake ladder step 4: the engine's verdict on an off-book move
   useEngineVerdict(s, line, side, ver, after, true);
+  const whatIfAnalysis = useWhatIfEngine(s, ver, after);
   // [Show refutation]: the engine line plays out on the board, then the board returns
   const [preview, setPreview] = useState<{ moves: { from: string; to: string; fen: string }[]; i: number } | null>(null);
   useEffect(() => {
@@ -207,6 +208,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   const playMove = useCallback(
     (san: string): string => {
       if (!live) return "ignored";
+      if (s.phase === "free") {
+        const result = s.playFree(san);
+        if (result === "ok") after();
+        return result;
+      }
       performance.mark("cot:move"); // move → feedback budget (§3, ≤ 50 ms), measured after the next paint
       const ply = s.ply;
       const r = s.play(san);
@@ -276,6 +282,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       else if (a === "skip-ff") {
         s.skipFF();
         after();
+      } else if (a === "whatif" && m.wrong) {
+        if (s.startWhatIf(m.ply, m.wrong.san)) {
+          setView(null);
+          after();
+        }
       } else if (a === "make-mine") makeMine();
       else if (a === "refute" && m.refute?.moves.length) setPreview({ moves: m.refute.moves, i: 0 });
       else if (a === "explore" && m.wrong) {
@@ -305,22 +316,42 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
     start({ ...run, graded, pendingMove: undefined });
   }, [run, start, s]);
 
+  const toggleWhatIf = useCallback(() => {
+    if (s.phase === "free") {
+      s.exitWhatIf();
+      setView(null);
+      after();
+      return;
+    }
+    if (s.startWhatIf(view?.ply ?? s.ply)) {
+      setView(null);
+      after();
+    }
+  }, [s, view, after]);
+
+  const playEngineMove = useCallback(
+    (san: string, seq: number) => {
+      if (s.phase === "free" && s.free?.seq === seq && s.playFree(san) === "ok") after();
+    },
+    [s, after]
+  );
+
   // ── what the board shows ─────────────────────────────────────────────────
-  const livePly = s.ply;
+  const livePly = s.boardPly;
   const shownPly = view ? view.ply : livePly;
   const viewMsg = view?.id ? s.feed.find((m) => m.id === view.id) ?? null : null;
   const pv = preview ? preview.moves[preview.i] : null;
-  const fen = pv ? pv.fen : view ? s.fens[view.ply] : s.wrong ? s.wrong.fen : s.fens[livePly];
+  const fen = pv ? pv.fen : view ? s.boardFen(view.ply) : s.wrong && !s.free ? s.wrong.fen : s.boardFen(livePly);
   const lastMove: [string, string] | null = pv
     ? [pv.from, pv.to]
     : view
     ? view.ply > 0
-      ? [s.moves[view.ply - 1].from, s.moves[view.ply - 1].to]
+      ? [s.boardMove(view.ply - 1).from, s.boardMove(view.ply - 1).to]
       : null
-    : s.wrong
+    : s.wrong && !s.free
       ? [s.wrong.from, s.wrong.to]
       : livePly > 0
-        ? [s.moves[livePly - 1].from, s.moves[livePly - 1].to]
+        ? [s.boardMove(livePly - 1).from, s.boardMove(livePly - 1).to]
         : null;
   const shapes = useMemo(() => {
     if (preview) return []; // the refutation plays out on a clean board
@@ -335,14 +366,14 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   }, [ver, view, viewMsg, preview]);
   const tints = preview ? undefined : view ? viewMsg?.tints : s.tints;
   const orientation = flipped ? (side === "white" ? "black" : "white") : side;
-  const canMove = live && s.phase === "await" && !preview;
+  const canMove = live && (s.phase === "free" || (s.phase === "await" && !s.wrong)) && !preview;
 
   const scrub = useCallback(
     (ply: number) => {
       const p = Math.max(0, Math.min(livePly, ply));
-      setView(p === livePly && !s.wrong ? null : { ply: p, id: null });
+      setView(p === livePly && (!s.wrong || s.free) ? null : { ply: p, id: null });
     },
-    [livePly, s.wrong]
+    [livePly, s.wrong, s.free]
   );
   const selectMsg = useCallback(
     (m: FeedMsg) => {
@@ -398,6 +429,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       const pick = drillPick(course, run.chapters, line.idx, Math.random, run.under ?? null);
       if (pick) endActions.push({ id: "next", label: "Next drill line", go: () => switchLine(pick.line, run.fromStart ? 0 : pick.startPly) });
     }
+    endActions.push({ id: "whatif", label: "What if? Play on from here", go: () => { if (s.startWhatIf()) after(); } });
   }
 
   // ── keyboard (§3.4) ──────────────────────────────────────────────────────
@@ -412,6 +444,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       else if (k === "ArrowRight") scrub(shownPly + 1);
       else if (k === "Escape") {
         if (help) setHelp(false);
+        else if (s.phase === "free") {
+          s.exitWhatIf();
+          setView(null);
+          after();
+        }
         else if (s.phase === "ff") {
           s.skipFF();
           after();
@@ -427,6 +464,11 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
         else if (s.phase === "wrong") tryAgain();
         else if (s.phase === "end" && endActions[0]) endActions[0].go();
         else return;
+      } else if (k === "Backspace" && s.phase === "free") {
+        s.undoFree();
+        after();
+      } else if (k === "w" || k === "W") {
+        if (s.phase === "free" || s.canWhatIf(view?.ply ?? s.ply)) toggleWhatIf();
       } else if (k === "h" || k === "H") {
         s.hintStep();
         after();
@@ -451,15 +493,18 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
   }, []);
 
   // ── render ───────────────────────────────────────────────────────────────
-  const name = nameAt(model, line, s.wrong && !view ? livePly : shownPly);
+  const name = s.free
+    ? s.nameAtBoard(shownPly)
+    : nameAt(model, line, s.wrong && !view ? livePly : shownPly);
   const lastMistake = [...s.feed].reverse().find((m) => m.kind === "mistake");
   const lastFF = s.feed.find((m) => m.kind === "ff");
   const liveId = s.phase === "wrong" && lastMistake ? lastMistake.id : s.phase === "ff" && lastFF ? lastFF.id : null;
-  const progress = s.endPly ? Math.min(1, livePly / s.endPly) : 0;
+  const progress = s.endPly ? Math.min(1, s.ply / s.endPly) : 0;
   const courseUrl = courseHref(run.hub.slug, run.system.slug, side);
 
   const srv = useServerMode();
   const graded = run.mode === "recall" || run.mode === "review";
+  const canStartWhatIf = s.canWhatIf(view?.ply ?? s.ply);
   return (
     <div className={`trainer py-4 md:py-6 max-md:pb-[34vh] ${reduced ? "reduced" : ""}`} data-testid="trainer" data-mode={run.mode} data-phase={s.phase} data-ply={livePly}>
       <div className="sr-only" aria-live="polite" data-testid="announce">{announce}</div>
@@ -472,13 +517,13 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
       <div className="grid gap-4 md:gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,672px)_minmax(360px,440px)] items-start">
         <div className="md:sticky md:top-4 min-w-0">
           <div className="flex items-stretch gap-1.5 sm:gap-2">
-          <EvalBar fen={fen} orientation={orientation} />
+          <EvalBar fen={fen} orientation={orientation} external={s.phase === "free" ? whatIfAnalysis : undefined} />
           <div className={`board-theme-${prefs.boardTheme} flex-1 min-w-0`} data-testid="board">
             <Board
               fen={fen}
               orientation={orientation}
               lastMove={lastMove}
-              movableColor={canMove ? side : null}
+              movableColor={canMove ? (s.phase === "free" ? "both" : side) : null}
               onMove={(san) => playMove(san)}
               shapes={shapes}
               tints={tints}
@@ -502,6 +547,25 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
             <IconBtn label="Restart line" onClick={restart}><RotateCcw size={16} /></IconBtn>
             <IconBtn label="Back (←)" onClick={() => scrub(shownPly - 1)} disabled={shownPly === 0}><ChevronLeft size={18} /></IconBtn>
             <IconBtn label="Forward (→)" onClick={() => scrub(shownPly + 1)} disabled={live}><ChevronRight size={18} /></IconBtn>
+            <IconBtn
+              label={s.phase === "free" ? "Back to the line (W)" : "What if? (W)"}
+              onClick={toggleWhatIf}
+              disabled={s.phase !== "free" && !canStartWhatIf}
+              pressed={s.phase === "free"}
+              data-testid="whatif-btn"
+            >
+              <FlaskConical size={16} />
+            </IconBtn>
+            {s.phase === "free" && (
+              <IconBtn
+                label="Take back (Backspace)"
+                onClick={() => { s.undoFree(); after(); }}
+                disabled={!s.free?.sans.length}
+                data-testid="whatif-undo"
+              >
+                <Undo2 size={16} />
+              </IconBtn>
+            )}
             <IconBtn label="Flip board (F)" onClick={() => setFlipped((f) => !f)}><ArrowUpDown size={16} /></IconBtn>
             <IconBtn label={prefs.showEval ? "Hide eval bar (E)" : "Show eval bar (E)"} pressed={prefs.showEval} onClick={() => setPref("showEval", !prefs.showEval)}><Gauge size={16} /></IconBtn>
             <IconBtn label="Keyboard shortcuts (?)" onClick={() => setHelp(true)}><Keyboard size={16} /></IconBtn>
@@ -511,6 +575,15 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
             {!live && (
               <button onClick={() => setView(null)} className="ml-auto text-sm px-3 min-h-[44px] md:min-h-[36px] rounded-md bg-accent text-accent-fg font-medium" data-testid="back-to-live">
                 Back to live
+              </button>
+            )}
+            {s.phase === "free" && live && (
+              <button
+                onClick={toggleWhatIf}
+                className="ml-auto text-sm px-3 min-h-[44px] md:min-h-[36px] rounded-md bg-accent text-accent-fg font-medium"
+                data-testid="whatif-exit"
+              >
+                Back to the line
               </button>
             )}
           </div>
@@ -538,8 +611,8 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
             {" › "}
             <Link href={courseUrl} className="hover:text-foreground">{run.system.name.replace(new RegExp(`^${escapeRe(run.hub.title)}[:,]?\\s*`), "") || "Main system"}</Link>
             {" · "}
-            <span className="text-foreground font-medium">{MODE_LABEL[run.mode]}</span>
-            {run.queueLeft !== undefined && run.mode === "review" && <span> · {run.queueLeft} more due</span>}
+            <span className="text-foreground font-medium">{s.phase === "free" ? `What if (${MODE_LABEL[run.mode]})` : MODE_LABEL[run.mode]}</span>
+            {s.phase !== "free" && run.queueLeft !== undefined && run.mode === "review" && <span> · {run.queueLeft} more due</span>}
           </div>
           <div className="mt-1 h-1.5 rounded-full bg-surface-2 overflow-hidden" role="progressbar" aria-label="Line progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
             <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
@@ -568,6 +641,8 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
                 onSelect={selectMsg}
                 actions={{
                   onAction,
+                  onEngineMove: playEngineMove,
+                  engineMovesLive: s.phase === "free" && !view,
                   onOption: run.mode === "learn" ? (li) => switchLine(li, s.feed.find((m) => m.kind === "branch" && m.options?.some((o) => o.line === li))?.ply) : undefined,
                   liveId,
                   optionsClickable: run.mode === "learn",
@@ -606,7 +681,7 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
               />
             )}
             {tab === "lines" && <LinesTab course={course} current={line.idx} clickable={run.mode === "learn" || run.mode === "drill"} onPick={(li) => switchLine(li)} learned={learned} />}
-            {tab === "stats" && <StatsTab ds={ds} node={line.nodes[Math.min(shownPly, line.nodes.length - 1)]} />}
+            {tab === "stats" && <StatsTab ds={ds} node={s.nodeAtBoard(shownPly)} />}
           </div>
 
           <div className={sheetOpen ? "" : "max-md:hidden"}>
@@ -631,12 +706,13 @@ export default function TrainerView({ ds, run, start }: { ds: Dataset; run: Run;
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function IconBtn({ label, onClick, disabled, pressed, children }: { label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; children: React.ReactNode }) {
+function IconBtn({ label, onClick, disabled, pressed, children, "data-testid": testId }: { label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; children: React.ReactNode; "data-testid"?: string }) {
   return (
     <button
       aria-label={label}
       title={label}
       aria-pressed={pressed}
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       className={`w-11 h-11 md:w-9 md:h-9 grid place-items-center rounded-md hover:text-foreground hover:bg-surface-2 disabled:opacity-40 ${pressed ? "text-foreground" : "text-muted"}`}
@@ -664,9 +740,10 @@ function MoveChips({
   model: ReturnType<typeof modelOf>;
 }) {
   const line = s.ctx.line;
+  const linePly = s.free ? s.free.from : livePly;
   return (
     <ol className="mt-2 flex flex-wrap gap-1 text-[13px] font-mono" aria-label="Moves" data-testid="move-chips">
-      {line.sans.slice(0, livePly).map((san, p) => {
+      {line.sans.slice(0, linePly).map((san, p) => {
         const current = p === shownPly - 1;
         const trunk = (mode === "review" || mode === "drill") && p < startPly;
         const star = definesName(model, line, p);
@@ -690,6 +767,23 @@ function MoveChips({
           <span className="px-1.5 py-0.5 rounded bg-danger/15 text-danger-ink line-through" data-testid="wrong-chip">{s.wrong.san}</span>
         </li>
       )}
+      {s.free?.sans.map((san, i) => {
+        const ply = s.free!.from + i;
+        const label = i === 0 || ply % 2 === 0 ? moveLabel(ply, san) : san;
+        const current = ply === shownPly - 1;
+        return (
+          <li key={`whatif-${i}`}>
+            <button
+              onClick={() => onScrub(ply + 1)}
+              aria-current={current ? "step" : undefined}
+              className={`px-1.5 py-0.5 rounded min-h-[28px] border border-dashed border-accent/60 italic ${current ? "bg-accent-soft text-foreground" : "text-muted hover:bg-surface-2"}`}
+              data-testid="whatif-chip"
+            >
+              {label}
+            </button>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -760,7 +854,8 @@ function LinesTab({ course, current, clickable, onPick, learned }: { course: Cou
   );
 }
 
-function StatsTab({ ds, node }: { ds: Dataset; node: number }) {
+function StatsTab({ ds, node }: { ds: Dataset; node: number | null }) {
+  if (node === null) return <p className="text-sm text-muted" data-testid="stats-outside-book">This position is outside the opening database.</p>;
   const nd = modelOf(ds).nodes[node];
   const moves = [...nd.moves].filter((m) => m.games > 0).sort((a, b) => b.games - a.games).slice(0, 8);
   return (
