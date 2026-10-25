@@ -9,10 +9,10 @@
  */
 import { Chess, type Move } from "chess.js";
 import type { Course, CourseLine } from "@/lib/openings-build/courses";
-import type { Model, MMove, MRow } from "@/lib/openings-build/model";
+import type { Model, MMove, MNode, MRow } from "@/lib/openings-build/model";
 import { deepestName, normSan } from "@/lib/openings-build/model";
 import type { Annotations, Shape } from "@/lib/openings-build/annotations";
-import { ideaText, noteFor, opponentText, whyText, type MoveStatsCtx } from "@/lib/coach/explain";
+import { clip, ideaText, noteFor, opponentText, whyText, type MoveStatsCtx } from "@/lib/coach/explain";
 import { withClocks, PIECE_NAME } from "@/lib/coach/facts";
 import type { Arrow, Tint } from "@/lib/coach/brushes";
 import { gradeFor, type Grade, type Outcome } from "@/lib/srs/fsrs";
@@ -31,9 +31,22 @@ export type MsgKind =
   | "mistake"
   | "transposition"
   | "hint"
-  | "complete";
+  | "complete"
+  /** What If: a move the learner played on their own (either side) */
+  | "whatif"
+  /** What If: the engine's top moves for the position on the board */
+  | "engine";
 
-export type ActionKind = "try" | "show" | "make-mine" | "explore" | "skip-ff" | "refute";
+export type ActionKind = "try" | "show" | "make-mine" | "explore" | "skip-ff" | "refute" | "whatif";
+
+/** One of the engine's candidate moves in a What If position. */
+export interface EngineMove {
+  san: string;
+  from: string;
+  to: string;
+  /** from White's point of view, formatted ("+0.3", "#2") */
+  score: string;
+}
 
 export interface BranchOption {
   san: string;
@@ -63,9 +76,29 @@ export interface FeedMsg {
   wrong?: { san: string; from: string; to: string; soft: boolean; theoryName?: string; offBook?: boolean };
   /** engine refutation of a wrong move: the opponent's best reply line (2–4 plies) from the wrong move's position */
   refute?: { moves: { san: string; from: string; to: string; fen: string }[] };
+  /** What If: the engine's top moves (best first) for the position reached by what-if move `seq` */
+  engine?: { seq: number; depth: number; moves: EngineMove[] };
+  /** posted during What If (its ply counts the what-if moves too) */
+  free?: true;
 }
 
-export type Phase = "ff" | "await" | "wrong" | "opponent" | "end";
+/** `free`: What If — the learner plays on for both sides; nothing grades. */
+export type Phase = "ff" | "await" | "wrong" | "opponent" | "end" | "free";
+
+/** What If state: moves played on from line ply `from` (the board's plies = from + sans.length). */
+export interface FreePlay {
+  from: number;
+  sans: string[];
+  moves: Move[];
+  /** full FENs after each move */
+  fens: string[];
+  /** bumps on every play/take-back: engine results for an older position are stale */
+  seq: number;
+  /** named position last announced (a row index) */
+  lastNameRow: number | null;
+  /** the line's state to restore on exit */
+  saved: { phase: Phase; arrows: Arrow[]; tints: Record<string, Tint>; wrong: TrainerSession["wrong"]; okSquare: string | null };
+}
 
 export interface CardEvent {
   type: "introduce" | "grade";
@@ -104,6 +137,8 @@ export interface SessionCtx {
 
 const SIDE_NAME = { white: "White", black: "Black" } as const;
 const pct = (x: number) => (x < 0.01 && x > 0 ? "<1%" : `${Math.round(x * 100)}%`);
+/** The first four FEN fields (the model keys positions by EPD). */
+const epdOf = (fen: string) => fen.trim().split(/\s+/).slice(0, 4).join(" ");
 
 /** "e4" at ply 0 → "1.e4"; "e5" at ply 1 → "1…e5". */
 export function moveLabel(ply: number, san: string): string {
@@ -150,6 +185,8 @@ export class TrainerSession {
   wrong: { san: string; from: string; to: string; fen: string; at: number; soft: boolean } | null = null;
   /** ✓ badge square after a correct move */
   okSquare: string | null = null;
+  /** What If in progress (phase "free") */
+  free: FreePlay | null = null;
   hint: 0 | 1 | 2 | 3 = 0;
   attempts = 0;
   /** learner moves introduced or graded this session */
@@ -236,6 +273,56 @@ export class TrainerSession {
 
   bookSan(ply = this.ply): string {
     return this.ctx.line.sans[ply];
+  }
+
+  // ── the board's timeline (the line, then any What If moves) ─────────────
+
+  /** Plies on the board: the line's, plus the what-if moves. */
+  get boardPly(): number {
+    return this.free ? this.free.from + this.free.sans.length : this.ply;
+  }
+
+  boardFen(ply: number): string {
+    if (!this.free || ply <= this.free.from) return this.fens[Math.max(0, Math.min(ply, this.fens.length - 1))];
+    return this.free.fens[Math.min(ply, this.boardPly) - this.free.from - 1];
+  }
+
+  /** The move played at a board ply. */
+  boardMove(ply: number): Move {
+    if (!this.free || ply < this.free.from) return this.moves[ply];
+    return this.free.moves[ply - this.free.from];
+  }
+
+  boardSan(ply: number): string {
+    if (!this.free || ply < this.free.from) return this.ctx.line.sans[ply];
+    return this.free.sans[ply - this.free.from];
+  }
+
+  /** Line ply, or the last line ply still on the board during What If. */
+  linePlyOf(boardPly: number): number {
+    return this.free ? Math.min(boardPly, this.free.from) : boardPly;
+  }
+
+  /** Theory node of the position at a board ply (what-if positions by EPD), or null. */
+  nodeAtBoard(ply: number): number | null {
+    if (!this.free || ply <= this.free.from) return this.ctx.line.nodes[Math.min(ply, this.ctx.line.nodes.length - 1)] ?? null;
+    return this.ctx.model.byEpd.get(epdOf(this.boardFen(ply))) ?? null;
+  }
+
+  /**
+   * The name hierarchy at a board ply: the line's, or, during a What If, the
+   * deepest named theory position reached along the what-if moves (like the
+   * line's own breadcrumb, which keeps the last name once theory ends).
+   */
+  nameAtBoard(ply: number): ReturnType<typeof nameAt> {
+    const { model, line } = this.ctx;
+    if (!this.free || ply <= this.free.from) return nameAt(model, line, ply);
+    for (let p = Math.min(ply, this.boardPly); p > this.free.from; p--) {
+      const node = this.nodeAtBoard(p);
+      const row = node !== null && model.nodes[node].nameRow !== -1 ? model.rows[model.nodes[node].nameRow] : null;
+      if (row) return { row, crumb: row.segments, eco: row.eco };
+    }
+    return nameAt(model, line, this.free.from);
   }
 
   // ── fast-forward ────────────────────────────────────────────────────────
@@ -454,9 +541,7 @@ export class TrainerSession {
 
   private statsCtx(ply: number, mv: MMove | undefined): MoveStatsCtx | null {
     const nd = this.ctx.model.nodes[this.ctx.line.nodes[ply]];
-    if (!mv) return null;
-    const score = (w: number, d: number, g: number) => (g >= 30 ? (w + d / 2) / g : null);
-    return { nodeGames: nd.games, moveGames: mv.games, scoreBefore: score(nd.w, nd.d, nd.games), scoreAfter: score(mv.w, mv.d, mv.games) };
+    return mv ? this.statsFor(nd, mv) : null;
   }
 
   /** Name milestones and transpositions after any move reaches `this.ply`. */
@@ -585,7 +670,7 @@ export class TrainerSession {
         who: "you",
         title: name ? `That's the ${name} (${label}), also theory.` : `${label} is also theory.`,
         text: `This course plays ${bookLabel} here.`,
-        actions: ["try", ...(canOverride ? (["make-mine"] as const) : []), "explore"],
+        actions: ["try", ...(canOverride ? (["make-mine"] as const) : []), "explore", "whatif"],
         wrong: { ...base, soft: true, ...(name ? { theoryName: name } : {}) },
       });
       return "soft";
@@ -602,7 +687,7 @@ export class TrainerSession {
         who: "you",
         title: `That's your ${other.courseName} move.`,
         text: `In this ${course.system.name} course we play ${bookLabel}.`,
-        actions: ["try"],
+        actions: ["try", "whatif"],
         wrong: { ...base, soft: true },
       });
       return "soft";
@@ -639,7 +724,7 @@ export class TrainerSession {
       who: "you",
       title: `${label} ✕`,
       text,
-      actions: ["try", "show"],
+      actions: ["try", "show", "whatif"],
       wrong: { ...base, soft: false, ...(stat ? {} : { offBook: true }) },
     });
     // re-teach goes right under the verdict, as its own message
@@ -755,11 +840,179 @@ export class TrainerSession {
       title: v.title,
       text: v.text,
       arrows: v.arrows,
-      actions: ["try", "show", ...(v.refute?.moves.length ? (["refute"] as const) : [])],
+      actions: ["try", "show", ...(v.refute?.moves.length ? (["refute"] as const) : []), "whatif"],
       ...(last?.wrong ? { wrong: last.wrong } : {}),
       ...(v.refute ? { refute: v.refute } : {}),
     });
     this.arrows = v.arrows;
+    return true;
+  }
+
+  // ── What If ─────────────────────────────────────────────────────────────
+
+  /**
+   * Can a What If start from board ply `from`? Not during the replay or while
+   * the opponent is moving, and never from a graded position still waiting for
+   * its answer (the engine's arrows would give it away). A wrong move's position
+   * is fine: its lapse is already recorded.
+   */
+  canWhatIf(from = this.ply): boolean {
+    if (this.phase === "ff" || this.phase === "opponent" || this.phase === "free") return false;
+    if (from < 0 || from > this.ply) return false;
+    if (from === this.ply && this.phase === "await" && this.isGraded(this.ply) && !this.gradedDone.has(this.ply)) return false;
+    return true;
+  }
+
+  /**
+   * Start a What If from line ply `from` (default: the live position), optionally
+   * playing `firstSan` at once (a wrong move the learner wants to play out). The
+   * line's state is kept and comes back with exitWhatIf().
+   */
+  startWhatIf(from = this.ply, firstSan?: string, opts: { engine?: boolean } = {}): boolean {
+    if (!this.canWhatIf(from)) return false;
+    this.free = {
+      from,
+      sans: [],
+      moves: [],
+      fens: [],
+      seq: 0,
+      lastNameRow: nameAt(this.ctx.model, this.ctx.line, from).row?.idx ?? null,
+      saved: { phase: this.phase, arrows: this.arrows, tints: this.tints, wrong: this.wrong, okSquare: this.okSquare },
+    };
+    this.phase = "free";
+    this.wrong = null;
+    this.okSquare = null;
+    this.arrows = [];
+    this.tints = {};
+    const at = from > 0 ? `after ${moveLabel(from - 1, this.ctx.line.sans[from - 1])}` : "from the start";
+    this.post({
+      kind: "whatif",
+      ply: from,
+      free: true,
+      title: "What if?",
+      text:
+        `Play on for both sides ${at}. ` +
+        (opts.engine === false ? "Nothing here is graded." : "After each move the engine shows its top three replies as numbered arrows. Nothing here is graded."),
+    });
+    if (firstSan) this.playFree(firstSan);
+    return true;
+  }
+
+  /** The position on the board during What If (full FEN). */
+  freeFen(): string {
+    return this.boardFen(this.boardPly);
+  }
+
+  /** A what-if move, by either side. */
+  playFree(san: string): "ok" | "illegal" | "ignored" {
+    const free = this.free;
+    if (!free || this.phase !== "free") return "ignored";
+    const fenBefore = this.freeFen();
+    const c = new Chess(withClocks(fenBefore));
+    let mv: Move;
+    try {
+      mv = c.move(san);
+    } catch {
+      return "illegal";
+    }
+    const ply = this.boardPly;
+    const { model, annotations } = this.ctx;
+    const previous = ply > 0 ? this.boardMove(ply - 1) : null;
+    const nodeBefore = this.nodeAtBoard(ply);
+    const nd = nodeBefore !== null ? model.nodes[nodeBefore] : null;
+    const norm = normSan(mv.san);
+    const stat = nd?.moves.find((m) => m.norm === norm);
+    const op = opponentText(fenBefore, mv.san, {
+      annotations,
+      names: this.namesSoFar(Math.min(ply, free.from)),
+      stats: nd && stat ? this.statsFor(nd, stat) : null,
+      previous,
+      fallback: "",
+    });
+    const parts = [op.text];
+    if (nd && nd.games >= 10) {
+      if (stat && stat.games > 0) parts.push(`Played in ${pct(stat.games / nd.games)} of master games from here.`);
+      else parts.push("No master game plays this here.");
+    }
+    free.sans.push(mv.san);
+    free.moves.push(mv);
+    free.fens.push(c.fen());
+    free.seq++;
+    this.arrows = [];
+    this.tints = {};
+    // a named position (reached or re-entered) is a milestone
+    const nodeAfter = this.nodeAtBoard(ply + 1);
+    const row = nodeAfter !== null && model.nodes[nodeAfter].nameRow !== -1 ? model.rows[model.nodes[nodeAfter].nameRow] : null;
+    if (row && row.idx !== free.lastNameRow) {
+      free.lastNameRow = row.idx;
+      parts.push(`This is the ${row.name}${row.eco ? ` · ${row.eco}` : ""}.`);
+    }
+    const mover = mv.color === "w" ? "white" : "black";
+    this.post({
+      kind: "whatif",
+      ply: ply + 1,
+      free: true,
+      who: mover === this.side ? "you" : mover,
+      title: moveLabel(ply, mv.san) + (c.isCheckmate() ? " — checkmate" : c.isStalemate() ? " — stalemate" : ""),
+      text: clip(parts.filter(Boolean).join(" ")),
+      ...(op.more ? { more: op.more } : {}),
+    });
+    return "ok";
+  }
+
+  private statsFor(nd: MNode, mv: MMove): MoveStatsCtx {
+    const score = (w: number, d: number, g: number) => (g >= 30 ? (w + d / 2) / g : null);
+    return { nodeGames: nd.games, moveGames: mv.games, scoreBefore: score(nd.w, nd.d, nd.games), scoreAfter: score(mv.w, mv.d, mv.games) };
+  }
+
+  /** Take back the last what-if move (none left: nothing happens). */
+  undoFree(): boolean {
+    const free = this.free;
+    if (!free || this.phase !== "free" || !free.sans.length) return false;
+    free.sans.pop();
+    free.moves.pop();
+    free.fens.pop();
+    free.seq++;
+    this.arrows = [];
+    this.tints = {};
+    return true;
+  }
+
+  /** Back to the line, exactly where it was. */
+  exitWhatIf(): void {
+    const free = this.free;
+    if (!free || this.phase !== "free") return;
+    this.free = null;
+    this.phase = free.saved.phase;
+    this.arrows = free.saved.arrows;
+    this.tints = free.saved.tints;
+    this.wrong = free.saved.wrong;
+    this.okSquare = free.saved.okSquare;
+    this.post({ kind: "whatif", ply: this.ply, title: "Back to the line", text: this.ply > 0 ? `Continuing after ${moveLabel(this.ply - 1, this.ctx.line.sans[this.ply - 1])}.` : "Continuing from the start." });
+  }
+
+  /**
+   * The engine's top moves for the what-if position `seq` (posted by the UI
+   * when the search ends): numbered arrows and a message with the moves. False
+   * when the board has moved on since.
+   */
+  engineSuggest(seq: number, moves: EngineMove[], depth: number): boolean {
+    const free = this.free;
+    if (!free || this.phase !== "free" || free.seq !== seq || !moves.length) return false;
+    const top = moves.slice(0, 3);
+    this.arrows = top.map((m, i) => ({ from: m.from, to: m.to, kind: "engine" as const, label: String(i + 1) }));
+    const c = new Chess(withClocks(this.freeFen()));
+    const ply = this.boardPly;
+    this.post({
+      kind: "engine",
+      ply,
+      free: true,
+      who: c.turn() === "w" ? "white" : "black",
+      title: `Engine: ${top.length === 1 ? "the only move" : "top moves"} for ${c.turn() === "w" ? "White" : "Black"}`,
+      text: `${top.map((m, i) => `${i + 1}. ${moveLabel(ply, m.san)} ${m.score}`).join(" · ")} · depth ${depth}`,
+      arrows: this.arrows,
+      engine: { seq, depth, moves: top },
+    });
     return true;
   }
 
